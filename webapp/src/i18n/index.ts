@@ -1,5 +1,6 @@
 const messages: Record<string, Record<string, string>> = {
     en: {
+
         // RHS Panel
         'rhs.addTab': '+ Add Tab',
         'rhs.noTabs': 'No tabs in this channel yet.',
@@ -83,6 +84,7 @@ const messages: Record<string, Record<string, string>> = {
     },
 
     uk: {
+
         // RHS Panel
         'rhs.addTab': '+ Додати вкладку',
         'rhs.noTabs': 'У цьому каналі ще немає вкладок.',

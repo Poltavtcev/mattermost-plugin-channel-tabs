@@ -1,7 +1,7 @@
 import type {Dispatch} from 'redux';
 
-import {ACTION_TYPES} from '../reducers';
 import * as api from '../api/client';
+import {ACTION_TYPES} from '../reducers';
 import type {CreateTabRequest, UpdateTabRequest, Tab} from '../types/tabs';
 
 export function loadTabs(channelId: string) {

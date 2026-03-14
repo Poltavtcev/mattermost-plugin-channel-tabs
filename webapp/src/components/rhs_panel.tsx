@@ -3,14 +3,10 @@ import {useSelector, useDispatch} from 'react-redux';
 
 import type {GlobalState} from '@mattermost/types/store';
 
-import type {Tab, CreateTabRequest, UpdateTabRequest} from '../types/tabs';
-import {
-    getTabsForChannel,
-    isModalOpen,
-    getEditingTab,
-    getPluginConfig,
-    getCurrentChannelId,
-} from '../selectors';
+import DeleteConfirm from './delete_confirm';
+import PageView from './page/PageView';
+import TabModal from './tab_modal';
+
 import {
     loadTabs,
     openTabModal,
@@ -24,10 +20,14 @@ import {
 } from '../actions';
 import * as api from '../api/client';
 import {useTranslations} from '../hooks/useTranslations';
-
-import TabModal from './tab_modal';
-import DeleteConfirm from './delete_confirm';
-import PageView from './page/PageView';
+import {
+    getTabsForChannel,
+    isModalOpen,
+    getEditingTab,
+    getPluginConfig,
+    getCurrentChannelId,
+} from '../selectors';
+import type {Tab, CreateTabRequest, UpdateTabRequest} from '../types/tabs';
 
 import '../styles/channel_tabs.scss';
 
@@ -43,6 +43,16 @@ const TAB_ICONS: Record<string, string> = {
     page: '📄',
     folder: '📁',
 };
+
+function getTabIcon(tab: Tab, isFolderTab: boolean, isExpanded: boolean): string {
+    if (tab.icon) {
+        return tab.icon;
+    }
+    if (isFolderTab) {
+        return isExpanded ? '📂' : '📁';
+    }
+    return TAB_ICONS[tab.type] || '📎';
+}
 
 function getDropZone(e: React.DragEvent, isFolder: boolean): DropZone {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -117,9 +127,9 @@ const RHSPanel: React.FC = () => {
     }, [config, dispatch]);
 
     const rootTabs = useMemo(() => {
-        return tabs
-            .filter((tab) => !tab.parent_id)
-            .sort((a, b) => a.sort_order - b.sort_order);
+        return tabs.
+            filter((tab) => !tab.parent_id).
+            sort((a, b) => a.sort_order - b.sort_order);
     }, [tabs]);
 
     const childrenByFolder = useMemo(() => {
@@ -236,9 +246,9 @@ const RHSPanel: React.FC = () => {
 
     const reorderSiblings = useCallback((srcTab: Tab, targetTab: Tab, position: 'before' | 'after') => {
         const parentId = targetTab.parent_id || '';
-        const siblings = parentId
-            ? [...(childrenByFolder[parentId] || [])]
-            : [...rootTabs];
+        const siblings = parentId ?
+            [...(childrenByFolder[parentId] || [])] :
+            [...rootTabs];
 
         const withoutSrc = siblings.filter((s) => s.id !== srcTab.id);
 
@@ -334,12 +344,15 @@ const RHSPanel: React.FC = () => {
         const indicator = dropIndicator?.id === tab.id ? dropIndicator.zone : null;
 
         return (
-            <div key={tab.id} className={'rhs-tabs-item-wrapper' + (isChild ? ' rhs-tabs-item-wrapper--child' : '')}>
+            <div
+                key={tab.id}
+                className={'rhs-tabs-item-wrapper' + (isChild ? ' rhs-tabs-item-wrapper--child' : '')}
+            >
                 {indicator === 'before' && <div className='rhs-tabs-drop-line'/>}
                 <div
                     className={
                         'rhs-tabs-item' +
-                        (!tab.is_active ? ' rhs-tabs-item--inactive' : '') +
+                        (tab.is_active ? '' : ' rhs-tabs-item--inactive') +
                         (isFolderTab ? ' rhs-tabs-item--folder' : '') +
                         (isFolderTab && isExpanded ? ' rhs-tabs-item--folder-open' : '') +
                         (indicator === 'inside' ? ' rhs-tabs-item--drop-target' : '')
@@ -358,7 +371,7 @@ const RHSPanel: React.FC = () => {
                         tabIndex={0}
                     >
                         <span className='rhs-tabs-item__icon'>
-                            {tab.icon ? tab.icon : (isFolderTab ? (isExpanded ? '📂' : '📁') : (TAB_ICONS[tab.type] || '📎'))}
+                            {getTabIcon(tab, isFolderTab, isExpanded)}
                         </span>
                         <div className='rhs-tabs-item__info'>
                             <span className='rhs-tabs-item__title'>
@@ -378,7 +391,10 @@ const RHSPanel: React.FC = () => {
                             )}
                         </div>
                         {tab.type === 'link' && (
-                            <span className='rhs-tabs-item__open-icon' title={t('rhs.opensNewTab')}>{'↗'}</span>
+                            <span
+                                className='rhs-tabs-item__open-icon'
+                                title={t('rhs.opensNewTab')}
+                            >{'↗'}</span>
                         )}
                         {isFolderTab && (
                             <span className='rhs-tabs-item__chevron'>
@@ -389,10 +405,16 @@ const RHSPanel: React.FC = () => {
 
                     {canManage && (
                         <div className='rhs-tabs-item__actions'>
-                            <span className='rhs-tabs-item__drag-handle' title={t('rhs.dragReorder')}>{'⠿'}</span>
+                            <span
+                                className='rhs-tabs-item__drag-handle'
+                                title={t('rhs.dragReorder')}
+                            >{'⠿'}</span>
                             <button
                                 className='rhs-tabs-item__action-btn'
-                                onClick={(e) => { e.stopPropagation(); handleEditTab(tab); }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditTab(tab);
+                                }}
                                 title={t('rhs.edit')}
                             >
                                 {'✏️'}
@@ -400,7 +422,10 @@ const RHSPanel: React.FC = () => {
                             {isFolderTab && (
                                 <button
                                     className='rhs-tabs-item__action-btn'
-                                    onClick={(e) => { e.stopPropagation(); handleAddTab(tab.id); }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleAddTab(tab.id);
+                                    }}
                                     title={t('rhs.addToFolder')}
                                 >
                                     {'➕'}
@@ -408,7 +433,10 @@ const RHSPanel: React.FC = () => {
                             )}
                             <button
                                 className='rhs-tabs-item__action-btn rhs-tabs-item__action-btn--danger'
-                                onClick={(e) => { e.stopPropagation(); setDeleteTarget(tab); }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteTarget(tab);
+                                }}
                                 title={t('rhs.delete')}
                             >
                                 {'🗑️'}
@@ -467,7 +495,10 @@ const RHSPanel: React.FC = () => {
         <div className='rhs-tabs-panel'>
             {canManage && (
                 <div className='rhs-tabs-header'>
-                    <button className='rhs-tabs-add-btn' onClick={() => handleAddTab()}>
+                    <button
+                        className='rhs-tabs-add-btn'
+                        onClick={() => handleAddTab()}
+                    >
                         {t('rhs.addTab')}
                     </button>
                 </div>

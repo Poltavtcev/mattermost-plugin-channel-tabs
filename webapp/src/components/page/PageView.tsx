@@ -1,12 +1,12 @@
 import React, {useState, useCallback} from 'react';
 
-import type {Tab} from '../../types/tabs';
+import MarkdownRenderer from './MarkdownRenderer';
+import PageEditor from './PageEditor';
+import PageToolbar from './PageToolbar';
+
 import * as api from '../../api/client';
 import {useTranslations} from '../../hooks/useTranslations';
-
-import PageToolbar from './PageToolbar';
-import PageEditor from './PageEditor';
-import MarkdownRenderer from './MarkdownRenderer';
+import type {Tab} from '../../types/tabs';
 
 interface PageViewProps {
     tab: Tab;

@@ -1,16 +1,16 @@
-import React from 'react';
 
 import manifest from 'manifest';
+import React from 'react';
 import type {Store} from 'redux';
 
 import type {GlobalState} from '@mattermost/types/store';
 
 import type {PluginRegistry} from 'types/mattermost-webapp';
 
-import reducer from './reducers';
-import RHSPanel from './components/rhs_panel';
 import {loadTabs} from './actions';
+import RHSPanel from './components/rhs_panel';
 import {getTranslations} from './i18n';
+import reducer from './reducers';
 
 const TabsIcon = () => (
     <svg

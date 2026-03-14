@@ -1,7 +1,7 @@
 import React from 'react';
 
-import type {Tab} from '../types/tabs';
 import {useTranslations} from '../hooks/useTranslations';
+import type {Tab} from '../types/tabs';
 
 interface DeleteConfirmProps {
     tab: Tab | null;
@@ -25,7 +25,10 @@ const DeleteConfirm: React.FC<DeleteConfirmProps> = ({tab, onConfirm, onCancel})
                 }
             }}
         >
-            <div className='channel-tabs-modal' style={{width: 400}}>
+            <div
+                className='channel-tabs-modal'
+                style={{width: 400}}
+            >
                 <div className='channel-tabs-confirm'>
                     <h3 style={{marginBottom: 12}}>{t('delete.title')}</h3>
                     <p>

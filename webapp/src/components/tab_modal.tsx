@@ -1,9 +1,20 @@
 import React, {useState, useCallback, useEffect} from 'react';
 
-import type {Tab, TabType, CreateTabRequest, UpdateTabRequest} from '../types/tabs';
-import {useTranslations} from '../hooks/useTranslations';
-
 import EmojiPicker from './emoji_picker';
+
+import {useTranslations} from '../hooks/useTranslations';
+import type {TranslateFn} from '../i18n';
+import type {Tab, TabType, CreateTabRequest, UpdateTabRequest} from '../types/tabs';
+
+function getPlaceholder(tabType: TabType, t: TranslateFn): string {
+    if (tabType === 'folder') {
+        return t('modal.placeholderFolder');
+    }
+    if (tabType === 'page') {
+        return t('modal.placeholderPage');
+    }
+    return t('modal.placeholderLink');
+}
 
 interface TabModalProps {
     visible: boolean;
@@ -59,7 +70,10 @@ const TabModal: React.FC<TabModalProps> = ({visible, editingTab, parentId, folde
         }
         if (tabType === 'link') {
             try {
-                new URL(url);
+                const parsed = new URL(url);
+                if (!parsed.protocol) {
+                    throw new Error('invalid');
+                }
             } catch {
                 setError(t('modal.errUrlInvalid'));
                 return;
@@ -115,13 +129,20 @@ const TabModal: React.FC<TabModalProps> = ({visible, editingTab, parentId, folde
     return (
         <div
             className='channel-tabs-modal-backdrop'
-            onClick={(e) => { if (e.target === e.currentTarget) { onClose(); } }}
+            onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                    onClose();
+                }
+            }}
             onKeyDown={handleKeyDown}
         >
             <div className='channel-tabs-modal'>
                 <div className='channel-tabs-modal__header'>
                     <h3>{editingTab ? t('modal.editTab') : t('modal.addNewTab')}</h3>
-                    <button className='channel-tabs-modal__close' onClick={onClose}>{'✕'}</button>
+                    <button
+                        className='channel-tabs-modal__close'
+                        onClick={onClose}
+                    >{'✕'}</button>
                 </div>
 
                 <div className='channel-tabs-modal__body'>
@@ -150,18 +171,15 @@ const TabModal: React.FC<TabModalProps> = ({visible, editingTab, parentId, folde
                                 type='text'
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                placeholder={
-                                    tabType === 'folder'
-                                        ? t('modal.placeholderFolder')
-                                        : tabType === 'page'
-                                            ? t('modal.placeholderPage')
-                                            : t('modal.placeholderLink')
-                                }
+                                placeholder={getPlaceholder(tabType, t)}
                                 maxLength={100}
                                 autoFocus={true}
                             />
                         </div>
-                        <EmojiPicker value={icon} onChange={setIcon}/>
+                        <EmojiPicker
+                            value={icon}
+                            onChange={setIcon}
+                        />
                     </div>
 
                     {tabType === 'link' && (
@@ -187,7 +205,10 @@ const TabModal: React.FC<TabModalProps> = ({visible, editingTab, parentId, folde
                             >
                                 <option value=''>{t('modal.rootLevel')}</option>
                                 {folders.map((f) => (
-                                    <option key={f.id} value={f.id}>{(f.icon || '📁') + ' ' + f.title}</option>
+                                    <option
+                                        key={f.id}
+                                        value={f.id}
+                                    >{(f.icon || '📁') + ' ' + f.title}</option>
                                 ))}
                             </select>
                         </div>
@@ -217,7 +238,10 @@ const TabModal: React.FC<TabModalProps> = ({visible, editingTab, parentId, folde
                 </div>
 
                 <div className='channel-tabs-modal__footer'>
-                    <button className='channel-tabs-modal__btn channel-tabs-modal__btn--secondary' onClick={onClose}>
+                    <button
+                        className='channel-tabs-modal__btn channel-tabs-modal__btn--secondary'
+                        onClick={onClose}
+                    >
                         {t('modal.cancel')}
                     </button>
                     <button

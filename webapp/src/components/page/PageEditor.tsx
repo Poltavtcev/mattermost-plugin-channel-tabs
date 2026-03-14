@@ -1,8 +1,8 @@
 import React, {useState, useCallback, useRef, useEffect} from 'react';
 
-import {useTranslations} from '../../hooks/useTranslations';
-
 import MarkdownRenderer from './MarkdownRenderer';
+
+import {useTranslations} from '../../hooks/useTranslations';
 
 interface PageEditorProps {
     initialContent: string;
@@ -64,21 +64,49 @@ const PageEditor: React.FC<PageEditorProps> = ({initialContent, onSave, onCancel
     }, [content]);
 
     return (
-        <div className='page-editor' onKeyDown={handleKeyDown}>
+        <div
+            className='page-editor'
+            onKeyDown={handleKeyDown}
+        >
             <div className='page-editor__toolbar'>
                 <div className='page-editor__format-btns'>
-                    <button onClick={() => insertMarkdown('**', '**')} title={t('editor.bold')}>{'B'}</button>
-                    <button onClick={() => insertMarkdown('*', '*')} title={t('editor.italic')} style={{fontStyle: 'italic'}}>{'I'}</button>
-                    <button onClick={() => insertMarkdown('# ')} title={t('editor.heading')}>{'H'}</button>
-                    <button onClick={() => insertMarkdown('- ')} title={t('editor.list')}>{'•'}</button>
-                    <button onClick={() => insertMarkdown('[', '](url)')} title={t('editor.link')}>{'🔗'}</button>
-                    <button onClick={() => insertMarkdown('`', '`')} title={t('editor.code')}>{'<>'}</button>
-                    <button onClick={() => insertMarkdown('```\n', '\n```')} title={t('editor.codeBlock')}>{'{ }'}</button>
-                    <button onClick={() => insertMarkdown('| Col 1 | Col 2 |\n|-------|-------|\n| ', ' | cell |\n')} title={t('editor.table')}>{'⊞'}</button>
+                    <button
+                        onClick={() => insertMarkdown('**', '**')}
+                        title={t('editor.bold')}
+                    >{'B'}</button>
+                    <button
+                        onClick={() => insertMarkdown('*', '*')}
+                        title={t('editor.italic')}
+                        style={{fontStyle: 'italic'}}
+                    >{'I'}</button>
+                    <button
+                        onClick={() => insertMarkdown('# ')}
+                        title={t('editor.heading')}
+                    >{'H'}</button>
+                    <button
+                        onClick={() => insertMarkdown('- ')}
+                        title={t('editor.list')}
+                    >{'•'}</button>
+                    <button
+                        onClick={() => insertMarkdown('[', '](url)')}
+                        title={t('editor.link')}
+                    >{'🔗'}</button>
+                    <button
+                        onClick={() => insertMarkdown('`', '`')}
+                        title={t('editor.code')}
+                    >{'<>'}</button>
+                    <button
+                        onClick={() => insertMarkdown('```\n', '\n```')}
+                        title={t('editor.codeBlock')}
+                    >{'{ }'}</button>
+                    <button
+                        onClick={() => insertMarkdown('| Col 1 | Col 2 |\n|-------|-------|\n| ', ' | cell |\n')}
+                        title={t('editor.table')}
+                    >{'⊞'}</button>
                 </div>
                 <div className='page-editor__view-toggle'>
                     <button
-                        className={!showPreview ? 'active' : ''}
+                        className={showPreview ? '' : 'active'}
                         onClick={() => setShowPreview(false)}
                     >
                         {t('editor.edit')}
