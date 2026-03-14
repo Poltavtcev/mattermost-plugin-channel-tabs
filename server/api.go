@@ -168,11 +168,9 @@ func (p *Plugin) handleCreateTab(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("folder already has maximum %d items", maxItemsPerFolder), http.StatusBadRequest)
 			return
 		}
-	} else {
-		if countRootTabs(tabs.Tabs) >= maxRootTabs {
-			http.Error(w, fmt.Sprintf("maximum %d root tabs reached", maxRootTabs), http.StatusBadRequest)
-			return
-		}
+	} else if countRootTabs(tabs.Tabs) >= maxRootTabs {
+		http.Error(w, fmt.Sprintf("maximum %d root tabs reached", maxRootTabs), http.StatusBadRequest)
+		return
 	}
 
 	now := time.Now().UnixMilli()
@@ -338,7 +336,9 @@ func (p *Plugin) handleUpdatePageContent(w http.ResponseWriter, r *http.Request)
 	}
 
 	p.afterTabsChanged(channelID, tabs.Tabs)
-	writeJSON(w, http.StatusOK, map[string]interface{}{"success": true})
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+	})
 }
 
 func (p *Plugin) handleMoveTab(w http.ResponseWriter, r *http.Request) {
@@ -746,10 +746,7 @@ func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab) {
 			moreLink = "\n[📑 " + linkText + "](" + permalink + ")"
 		}
 
-		available := maxHeaderLen - len([]rune(moreLink))
-		if available < 1 {
-			available = 1
-		}
+		available := max(maxHeaderLen-len([]rune(moreLink)), 1)
 
 		runes := []rune(header)
 		if available < len(runes) {
