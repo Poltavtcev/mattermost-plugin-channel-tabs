@@ -194,25 +194,29 @@ func (p *Plugin) handleCreateTab(w http.ResponseWriter, r *http.Request) {
 	case TabTypeLink:
 		newTab.URL = req.URL
 	case TabTypePage:
-		pageContent := req.Content
-		if pageContent == "" {
-			pageContent = "*(empty page)*"
-		}
-		post := &model.Post{
-			ChannelId: channelID,
-			UserId:    p.botUserID,
-			Message:   "# " + req.Title + "\n\n" + pageContent,
-		}
-		post.AddProp("channel_tabs_page", true)
-
-		created, appErr := p.API.CreatePost(post)
-		if appErr != nil {
-			http.Error(w, "Failed to create page post: "+appErr.Error(), http.StatusInternalServerError)
-			return
-		}
-		newTab.PostID = created.Id
 		newTab.Content = req.Content
 		newTab.Format = "markdown"
+
+		cfg := p.getConfiguration()
+		if cfg.SyncTabsToHeader {
+			pageContent := req.Content
+			if pageContent == "" {
+				pageContent = "*(empty page)*"
+			}
+			post := &model.Post{
+				ChannelId: channelID,
+				UserId:    p.botUserID,
+				Message:   "# " + req.Title + "\n\n" + pageContent,
+			}
+			post.AddProp("channel_tabs_page", true)
+
+			created, appErr := p.API.CreatePost(post)
+			if appErr != nil {
+				p.API.LogError("handleCreateTab: failed to create page post", "error", appErr.Error())
+			} else {
+				newTab.PostID = created.Id
+			}
+		}
 	}
 
 	tabs.Tabs = append(tabs.Tabs, newTab)
@@ -313,8 +317,8 @@ func (p *Plugin) handleUpdatePageContent(w http.ResponseWriter, r *http.Request)
 	tab.Format = "markdown"
 	tab.UpdatedAt = time.Now().UnixMilli()
 
-	// Update the underlying Mattermost post
-	if tab.PostID != "" {
+	cfg := p.getConfiguration()
+	if cfg.SyncTabsToHeader && tab.PostID != "" {
 		post, appErr := p.API.GetPost(tab.PostID)
 		if appErr == nil && post != nil {
 			postContent := req.Content
