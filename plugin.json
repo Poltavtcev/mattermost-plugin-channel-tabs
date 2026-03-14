@@ -28,14 +28,14 @@
                 "display_name": "Maximum Tabs Per Channel",
                 "type": "number",
                 "default": 30,
-                "help_text": "Maximum number of tabs allowed per channel (1-50). / Максимальна кількість вкладок на канал (1-50)."
+                "help_text": "Maximum number of tabs allowed per channel (1-50)."
             },
             {
                 "key": "SyncTabsToHeader",
-                "display_name": "Sync Tabs to Channel Header (Mobile Fallback)",
+                "display_name": "Sync Tabs to Channel Header",
                 "type": "bool",
                 "default": false,
-                "help_text": "When enabled, tabs are synced as Markdown links in the channel header and a navigation post is maintained for mobile clients. Page tabs will be backed by real posts. / Коли увімкнено, вкладки синхронізуються як Markdown-посилання у заголовку каналу, а навігаційний пост підтримується для мобільних клієнтів. Вкладки-сторінки створюватимуться як пости."
+                "help_text": "When enabled, tabs are synced as Markdown links in the channel header and a navigation post is maintained for mobile clients. Page tabs will be backed by real posts."
             }
         ]
     }

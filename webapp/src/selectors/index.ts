@@ -14,7 +14,8 @@ type PluginState = {
 };
 
 function getPluginState(state: GlobalState): PluginState | undefined {
-    return (state as unknown as Record<string, Record<string, PluginState>>)['plugins-' + manifest.id] as PluginState | undefined;
+    const plugins = (state as unknown as Record<string, unknown>);
+    return plugins['plugins-' + manifest.id] as PluginState | undefined;
 }
 
 export function getTabsForChannel(state: GlobalState, channelId: string): Tab[] {

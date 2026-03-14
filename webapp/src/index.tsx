@@ -1,7 +1,7 @@
 
 import manifest from 'manifest';
 import React from 'react';
-import type {Store} from 'redux';
+import type {Reducer, Store} from 'redux';
 
 import type {GlobalState} from '@mattermost/types/store';
 
@@ -40,7 +40,7 @@ export default class Plugin {
     } | null = null;
 
     public async initialize(registry: PluginRegistry, store: Store<GlobalState>) {
-        registry.registerReducer(reducer);
+        registry.registerReducer({reducer: reducer as Reducer});
 
         const locale = getUserLocale(store.getState());
         const t = getTranslations(locale);
