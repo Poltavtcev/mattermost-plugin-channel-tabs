@@ -579,7 +579,11 @@ func buildCompactMarkdown(tabs []Tab, teamName string) string {
 	roots, children := partitionTabs(tabs)
 
 	var b strings.Builder
-	for _, rs := range roots {
+	for i, rs := range roots {
+		if i > 0 {
+			// Add extra spacing between root entries for better readability in channel header.
+			b.WriteString("\n")
+		}
 		t := rs.tab
 		switch t.Type {
 		case TabTypeLink:
