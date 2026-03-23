@@ -336,9 +336,7 @@ func (p *Plugin) handleUpdatePageContent(w http.ResponseWriter, r *http.Request)
 	}
 
 	p.afterTabsChanged(channelID, tabs.Tabs)
-	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"success": true,
-	})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
 func (p *Plugin) handleMoveTab(w http.ResponseWriter, r *http.Request) {
@@ -497,7 +495,7 @@ func (p *Plugin) handleReorderTabs(w http.ResponseWriter, r *http.Request) {
 
 func (p *Plugin) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	cfg := p.getConfiguration()
-	writeJSON(w, http.StatusOK, map[string]interface{}{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"max_tabs":         cfg.GetMaxTabs(),
 		"sync_tabs_header": cfg.SyncTabsToHeader,
 	})
@@ -505,7 +503,7 @@ func (p *Plugin) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 
 // --- helpers ---
 
-func writeJSON(w http.ResponseWriter, status int, v interface{}) {
+func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
@@ -850,7 +848,7 @@ func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab) {
 }
 
 func (p *Plugin) publishTabsUpdated(channelID string) {
-	p.API.PublishWebSocketEvent("tabs_updated", map[string]interface{}{
+	p.API.PublishWebSocketEvent("tabs_updated", map[string]any{
 		"channel_id": channelID,
 	}, &model.WebsocketBroadcast{ChannelId: channelID})
 }
