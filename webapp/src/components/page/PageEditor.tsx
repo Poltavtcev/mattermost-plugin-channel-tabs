@@ -14,7 +14,10 @@ interface PageEditorProps {
 }
 
 const MAX_CONTENT_SIZE = 50 * 1024;
-const FILE_MARKDOWN_RE = /!\[([^\]]*)\]\((\/api\/v4\/files\/([a-z0-9]+))\)|\[([^\]]+)\]\((\/api\/v4\/files\/([a-z0-9]+))\)/g;
+
+/** Matches image or link markdown; URL may be relative or absolute (Mattermost file id extracted separately). */
+const FILE_MARKDOWN_RE = /!\[([^\]]*)\]\(([^)]+)\)|\[([^\]]+)\]\(([^)]+)\)/g;
+const FILE_ID_IN_URL = /\/api\/v4\/files\/([a-zA-Z0-9]+)/;
 
 type LinkedFile = {
     id: string;
@@ -203,20 +206,26 @@ const PageEditor: React.FC<PageEditorProps> = ({channelId, initialContent, onSav
                 {!showPreview && linkedFiles.length > 0 && (
                     <div className='page-editor__files'>
                         <div className='page-editor__files-title'>{t('editor.filesAttached')}</div>
-                        <div className='page-editor__files-list'>
+                        <div className='page-editor__files-chips'>
                             {linkedFiles.map((file) => (
                                 <div
                                     key={file.id}
-                                    className='page-editor__file-item'
+                                    className='page-editor__file-chip'
                                 >
-                                    <span className='page-editor__file-name'>{file.name}</span>
+                                    <span
+                                        className='page-editor__file-chip-name'
+                                        title={file.name}
+                                    >
+                                        {file.name}
+                                    </span>
                                     <button
-                                        className='page-editor__file-remove'
+                                        className='page-editor__file-chip-remove'
                                         onClick={() => handleRemoveLinkedFile(file.id)}
                                         title={t('editor.removeFile')}
                                         type='button'
+                                        aria-label={t('editor.removeFile')}
                                     >
-                                        {'✕'}
+                                        {'×'}
                                     </button>
                                 </div>
                             ))}
@@ -278,11 +287,15 @@ function getPrimaryButtonLabel(uploading: boolean, t: (key: string) => string): 
 function extractLinkedFiles(markdown: string): LinkedFile[] {
     const map = new Map<string, LinkedFile>();
     for (const match of markdown.matchAll(FILE_MARKDOWN_RE)) {
-        const id = match[3] || match[7];
-        const name = match[1] || match[4];
-        if (id && name && !map.has(id)) {
-            map.set(id, {id, name});
+        const url = (match[2] || match[4] || '').trim();
+        const idMatch = url.match(FILE_ID_IN_URL);
+        const id = idMatch?.[1];
+        if (!id || map.has(id)) {
+            continue;
         }
+        const rawName = (match[1] || match[3] || '').trim();
+        const name = rawName || id;
+        map.set(id, {id, name});
     }
     return [...map.values()];
 }
@@ -292,7 +305,12 @@ function removeFileFromMarkdown(markdown: string, fileID: string): string {
         return markdown;
     }
     const escaped = fileID.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const targetRe = new RegExp(`!?\\[[^\\]]*\\]\\(\\/api\\/v4\\/files\\/${escaped}\\)\\n?`, 'g');
+
+    // Relative /api/v4/files/id or full URL ending with that path
+    const targetRe = new RegExp(
+        `!?\\[[^\\]]*\\]\\([^)]*\\/api\\/v4\\/files\\/${escaped}\\)\\n?`,
+        'g',
+    );
     const cleaned = markdown.replace(targetRe, '');
     return cleaned.replace(/\n{3,}/g, '\n\n').trimEnd();
 }

@@ -753,56 +753,70 @@
 }
 
 .page-editor__files {
-    padding: 10px 16px;
+    padding: 8px 16px 10px;
     border-bottom: 1px solid rgba(var(--center-channel-color-rgb, 63, 67, 80), 0.08);
     background: rgba(var(--center-channel-color-rgb, 63, 67, 80), 0.03);
 }
 
 .page-editor__files-title {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
-    color: rgba(var(--center-channel-color-rgb, 63, 67, 80), 0.56);
-    margin-bottom: 8px;
+    letter-spacing: 0.02em;
+    color: rgba(var(--center-channel-color-rgb, 63, 67, 80), 0.5);
+    margin-bottom: 6px;
 }
 
-.page-editor__files-list {
+.page-editor__files-chips {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
     gap: 6px;
-}
-
-.page-editor__file-item {
-    display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 6px 8px;
-    border: 1px solid rgba(var(--center-channel-color-rgb, 63, 67, 80), 0.12);
-    border-radius: 4px;
-    background: var(--center-channel-bg, #fff);
 }
 
-.page-editor__file-name {
-    font-size: 12px;
+.page-editor__file-chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    min-height: 24px;
+    padding: 0 2px 0 8px;
+    gap: 2px;
+    border: 1px solid rgba(var(--center-channel-color-rgb, 63, 67, 80), 0.16);
+    border-radius: 999px;
+    background: rgba(var(--center-channel-color-rgb, 63, 67, 80), 0.06);
+}
+
+.page-editor__file-chip-name {
+    font-size: 11px;
+    line-height: 1.3;
+    font-weight: 500;
     color: var(--center-channel-color, #3f4350);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    max-width: 200px;
 }
 
-.page-editor__file-remove {
+.page-editor__file-chip-remove {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin: 1px 2px 1px 0;
+    padding: 0;
     border: none;
+    border-radius: 50%;
     background: transparent;
-    color: rgba(var(--center-channel-color-rgb, 63, 67, 80), 0.48);
+    color: rgba(var(--center-channel-color-rgb, 63, 67, 80), 0.45);
     cursor: pointer;
-    font-size: 13px;
+    font-size: 14px;
+    font-weight: 400;
     line-height: 1;
-    padding: 2px 4px;
-    border-radius: 3px;
 
     &:hover {
         color: var(--error-text, #d24b4e);
-        background: rgba(var(--error-text-color-rgb, 210, 75, 78), 0.08);
+        background: rgba(var(--error-text-color-rgb, 210, 75, 78), 0.12);
     }
 }
 
