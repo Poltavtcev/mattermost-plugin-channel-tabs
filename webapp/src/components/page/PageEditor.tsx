@@ -2,9 +2,11 @@ import React, {useState, useCallback, useRef, useEffect} from 'react';
 
 import MarkdownRenderer from './MarkdownRenderer';
 
+import * as api from '../../api/client';
 import {useTranslations} from '../../hooks/useTranslations';
 
 interface PageEditorProps {
+    channelId: string;
     initialContent: string;
     onSave: (content: string) => void;
     onCancel: () => void;
@@ -13,12 +15,14 @@ interface PageEditorProps {
 
 const MAX_CONTENT_SIZE = 50 * 1024;
 
-const PageEditor: React.FC<PageEditorProps> = ({initialContent, onSave, onCancel, saving}) => {
+const PageEditor: React.FC<PageEditorProps> = ({channelId, initialContent, onSave, onCancel, saving}) => {
     const t = useTranslations();
     const [content, setContent] = useState(initialContent);
     const [showPreview, setShowPreview] = useState(false);
     const [error, setError] = useState('');
+    const [uploading, setUploading] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (textareaRef.current && !showPreview) {
@@ -63,6 +67,55 @@ const PageEditor: React.FC<PageEditorProps> = ({initialContent, onSave, onCancel
         }, 0);
     }, [content]);
 
+    const insertTextAtCursor = useCallback((text: string) => {
+        const textarea = textareaRef.current;
+        if (!textarea) {
+            setContent((prev) => prev + text);
+            return;
+        }
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const newContent = content.substring(0, start) + text + content.substring(end);
+        setContent(newContent);
+
+        setTimeout(() => {
+            textarea.focus();
+            const cursorPos = start + text.length;
+            textarea.setSelectionRange(cursorPos, cursorPos);
+        }, 0);
+    }, [content]);
+
+    const handleUploadClick = useCallback(() => {
+        fileInputRef.current?.click();
+    }, []);
+
+    const handleFileSelected = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) {
+            return;
+        }
+
+        setUploading(true);
+        setError('');
+
+        try {
+            const uploaded = await api.uploadFile(channelId, file);
+            const isImage = uploaded.mime_type?.startsWith('image/');
+            const fileURL = `/api/v4/files/${uploaded.id}`;
+            const markdown = isImage ?
+                `![${uploaded.name}](${fileURL})` :
+                `[${uploaded.name}](${fileURL})`;
+            insertTextAtCursor(markdown);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : '';
+            setError(t('editor.uploadFailed', {message}));
+        } finally {
+            setUploading(false);
+        }
+    }, [channelId, insertTextAtCursor, t]);
+
     return (
         <div
             className='page-editor'
@@ -103,6 +156,11 @@ const PageEditor: React.FC<PageEditorProps> = ({initialContent, onSave, onCancel
                         onClick={() => insertMarkdown('| Col 1 | Col 2 |\n|-------|-------|\n| ', ' | cell |\n')}
                         title={t('editor.table')}
                     >{'⊞'}</button>
+                    <button
+                        onClick={handleUploadClick}
+                        title={t('editor.upload')}
+                        disabled={uploading || saving}
+                    >{uploading ? '⏳' : '📎'}</button>
                 </div>
                 <div className='page-editor__view-toggle'>
                     <button
@@ -125,6 +183,12 @@ const PageEditor: React.FC<PageEditorProps> = ({initialContent, onSave, onCancel
             )}
 
             <div className='page-editor__body'>
+                <input
+                    ref={fileInputRef}
+                    type='file'
+                    style={{display: 'none'}}
+                    onChange={handleFileSelected}
+                />
                 {showPreview ? (
                     <div className='page-editor__preview'>
                         {content ? (
@@ -160,14 +224,21 @@ const PageEditor: React.FC<PageEditorProps> = ({initialContent, onSave, onCancel
                     <button
                         className='channel-tabs-modal__btn channel-tabs-modal__btn--primary'
                         onClick={handleSave}
-                        disabled={saving}
+                        disabled={saving || uploading}
                     >
-                        {saving ? t('editor.saving') : t('editor.save')}
+                        {saving ? t('editor.saving') : getPrimaryButtonLabel(uploading, t)}
                     </button>
                 </div>
             </div>
         </div>
     );
 };
+
+function getPrimaryButtonLabel(uploading: boolean, t: (key: string) => string): string {
+    if (uploading) {
+        return t('editor.uploading');
+    }
+    return t('editor.save');
+}
 
 export default PageEditor;

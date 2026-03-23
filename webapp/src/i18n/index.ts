@@ -77,6 +77,9 @@ const messages: Record<string, Record<string, string>> = {
         'editor.code': 'Code',
         'editor.codeBlock': 'Code block',
         'editor.table': 'Table',
+        'editor.upload': 'Upload file',
+        'editor.uploading': 'Uploading...',
+        'editor.uploadFailed': 'Upload failed: {message}',
 
         // Index (header button)
         'header.title': 'Channel Tabs',
@@ -161,6 +164,9 @@ const messages: Record<string, Record<string, string>> = {
         'editor.code': 'Код',
         'editor.codeBlock': 'Блок коду',
         'editor.table': 'Таблиця',
+        'editor.upload': 'Завантажити файл',
+        'editor.uploading': 'Завантаження...',
+        'editor.uploadFailed': 'Не вдалося завантажити файл: {message}',
 
         // Index (header button)
         'header.title': 'Вкладки каналу',

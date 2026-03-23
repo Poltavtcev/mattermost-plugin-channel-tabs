@@ -69,3 +69,31 @@ export async function fetchPluginConfig(): Promise<PluginConfig> {
     const r = await fetch(`${base()}/config`, {method: 'GET', headers: headers(false)});
     return ok<PluginConfig>(r);
 }
+
+type UploadedFileInfo = {
+    id: string;
+    name: string;
+    mime_type?: string;
+};
+
+type FileUploadResponse = {
+    file_infos: UploadedFileInfo[];
+};
+
+export async function uploadFile(channelId: string, file: File): Promise<UploadedFileInfo> {
+    const formData = new FormData();
+    formData.append('files', file);
+    formData.append('channel_id', channelId);
+
+    const r = await fetch(`/api/v4/files?channel_id=${encodeURIComponent(channelId)}`, {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
+        body: formData,
+    });
+    const data = await ok<FileUploadResponse>(r);
+    const uploaded = data.file_infos?.[0];
+    if (!uploaded) {
+        throw new Error('Upload succeeded but file metadata is missing');
+    }
+    return uploaded;
+}

@@ -45,6 +45,7 @@ const PageView: React.FC<PageViewProps> = ({tab, channelId, canEdit, onBack, onC
                     onBack={() => setEditing(false)}
                 />
                 <PageEditor
+                    channelId={channelId}
                     initialContent={tab.content || ''}
                     onSave={handleSave}
                     onCancel={() => setEditing(false)}
