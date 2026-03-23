@@ -6,6 +6,7 @@ Add customizable tabs to Mattermost channels: external links, embedded Markdown 
 
 - **Link tabs** — pin external URLs to a channel for quick access
 - **Page tabs** — create rich Markdown pages directly inside a channel (backed by real Mattermost posts for full mobile compatibility)
+- **File upload in page editor** — upload files while editing a page and auto-insert Markdown links/images at cursor position
 - **Folders** — group related tabs into collapsible folders (one level of nesting)
 - **Drag & drop** — reorder tabs and move them between folders
 - **Custom icons** — assign emoji icons to any tab
@@ -41,6 +42,14 @@ Add customizable tabs to Mattermost channels: external links, embedded Markdown 
 2. The Right-Hand Sidebar panel opens with the tab list.
 3. Click **+ Add Tab** to create a link, page, or folder.
 4. Only channel/team/system admins can manage tabs; all members can view them.
+
+### Page file uploads
+
+- Open a **Page** tab and click **Edit Page**
+- Use the **📎** button in the editor toolbar to upload a file
+- The plugin inserts a Markdown reference automatically:
+  - image files as `![name](...)`
+  - other files as `[name](...)`
 
 ## Building from Source
 
