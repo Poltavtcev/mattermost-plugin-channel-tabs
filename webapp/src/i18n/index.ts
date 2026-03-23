@@ -80,6 +80,8 @@ const messages: Record<string, Record<string, string>> = {
         'editor.upload': 'Upload file',
         'editor.uploading': 'Uploading...',
         'editor.uploadFailed': 'Upload failed: {message}',
+        'editor.filesAttached': 'Files in this page',
+        'editor.removeFile': 'Remove file reference',
 
         // Index (header button)
         'header.title': 'Channel Tabs',
@@ -167,6 +169,8 @@ const messages: Record<string, Record<string, string>> = {
         'editor.upload': 'Завантажити файл',
         'editor.uploading': 'Завантаження...',
         'editor.uploadFailed': 'Не вдалося завантажити файл: {message}',
+        'editor.filesAttached': 'Файли на цій сторінці',
+        'editor.removeFile': 'Прибрати посилання на файл',
 
         // Index (header button)
         'header.title': 'Вкладки каналу',

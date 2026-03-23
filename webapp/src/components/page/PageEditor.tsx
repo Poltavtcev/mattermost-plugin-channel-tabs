@@ -14,6 +14,12 @@ interface PageEditorProps {
 }
 
 const MAX_CONTENT_SIZE = 50 * 1024;
+const FILE_MARKDOWN_RE = /!\[([^\]]*)\]\((\/api\/v4\/files\/([a-z0-9]+))\)|\[([^\]]+)\]\((\/api\/v4\/files\/([a-z0-9]+))\)/g;
+
+type LinkedFile = {
+    id: string;
+    name: string;
+};
 
 const PageEditor: React.FC<PageEditorProps> = ({channelId, initialContent, onSave, onCancel, saving}) => {
     const t = useTranslations();
@@ -23,6 +29,7 @@ const PageEditor: React.FC<PageEditorProps> = ({channelId, initialContent, onSav
     const [uploading, setUploading] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const linkedFiles = extractLinkedFiles(content);
 
     useEffect(() => {
         if (textareaRef.current && !showPreview) {
@@ -116,6 +123,10 @@ const PageEditor: React.FC<PageEditorProps> = ({channelId, initialContent, onSav
         }
     }, [channelId, insertTextAtCursor, t]);
 
+    const handleRemoveLinkedFile = useCallback((fileID: string) => {
+        setContent((prev) => removeFileFromMarkdown(prev, fileID));
+    }, []);
+
     return (
         <div
             className='page-editor'
@@ -189,6 +200,29 @@ const PageEditor: React.FC<PageEditorProps> = ({channelId, initialContent, onSav
                     style={{display: 'none'}}
                     onChange={handleFileSelected}
                 />
+                {!showPreview && linkedFiles.length > 0 && (
+                    <div className='page-editor__files'>
+                        <div className='page-editor__files-title'>{t('editor.filesAttached')}</div>
+                        <div className='page-editor__files-list'>
+                            {linkedFiles.map((file) => (
+                                <div
+                                    key={file.id}
+                                    className='page-editor__file-item'
+                                >
+                                    <span className='page-editor__file-name'>{file.name}</span>
+                                    <button
+                                        className='page-editor__file-remove'
+                                        onClick={() => handleRemoveLinkedFile(file.id)}
+                                        title={t('editor.removeFile')}
+                                        type='button'
+                                    >
+                                        {'✕'}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
                 {showPreview ? (
                     <div className='page-editor__preview'>
                         {content ? (
@@ -239,6 +273,28 @@ function getPrimaryButtonLabel(uploading: boolean, t: (key: string) => string): 
         return t('editor.uploading');
     }
     return t('editor.save');
+}
+
+function extractLinkedFiles(markdown: string): LinkedFile[] {
+    const map = new Map<string, LinkedFile>();
+    for (const match of markdown.matchAll(FILE_MARKDOWN_RE)) {
+        const id = match[3] || match[7];
+        const name = match[1] || match[4];
+        if (id && name && !map.has(id)) {
+            map.set(id, {id, name});
+        }
+    }
+    return [...map.values()];
+}
+
+function removeFileFromMarkdown(markdown: string, fileID: string): string {
+    if (!fileID) {
+        return markdown;
+    }
+    const escaped = fileID.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const targetRe = new RegExp(`!?\\[[^\\]]*\\]\\(\\/api\\/v4\\/files\\/${escaped}\\)\\n?`, 'g');
+    const cleaned = markdown.replace(targetRe, '');
+    return cleaned.replace(/\n{3,}/g, '\n\n').trimEnd();
 }
 
 export default PageEditor;
