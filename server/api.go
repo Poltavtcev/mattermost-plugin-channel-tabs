@@ -541,6 +541,16 @@ func tabIcon(t Tab, fallback string) string {
 	return fallback
 }
 
+func permalinkForPost(teamName, postID string) string {
+	if postID == "" {
+		return ""
+	}
+	if teamName != "" {
+		return "/" + teamName + "/pl/" + postID
+	}
+	return "/pl/" + postID
+}
+
 func partitionTabs(tabs []Tab) (roots []sortable, children map[string][]sortable) {
 	children = map[string][]sortable{}
 	for _, t := range tabs {
@@ -575,8 +585,8 @@ func buildCompactMarkdown(tabs []Tab, teamName string) string {
 		case TabTypeLink:
 			b.WriteString(tabIcon(t, "") + "[" + t.Title + "](" + t.URL + ")\n")
 		case TabTypePage:
-			if t.PostID != "" && teamName != "" {
-				b.WriteString(tabIcon(t, "📄 ") + "[" + t.Title + "](/" + teamName + "/pl/" + t.PostID + ")\n")
+			if permalink := permalinkForPost(teamName, t.PostID); permalink != "" {
+				b.WriteString(tabIcon(t, "📄 ") + "[" + t.Title + "](" + permalink + ")\n")
 			} else {
 				b.WriteString(tabIcon(t, "📄 ") + t.Title + "\n")
 			}
@@ -592,8 +602,8 @@ func buildCompactMarkdown(tabs []Tab, teamName string) string {
 				case TabTypeLink:
 					b.WriteString("- " + tabIcon(ct, "") + "[" + ct.Title + "](" + ct.URL + ")\n")
 				case TabTypePage:
-					if ct.PostID != "" && teamName != "" {
-						b.WriteString("- " + tabIcon(ct, "📄 ") + "[" + ct.Title + "](/" + teamName + "/pl/" + ct.PostID + ")\n")
+					if permalink := permalinkForPost(teamName, ct.PostID); permalink != "" {
+						b.WriteString("- " + tabIcon(ct, "📄 ") + "[" + ct.Title + "](" + permalink + ")\n")
 					} else {
 						b.WriteString("- " + tabIcon(ct, "📄 ") + ct.Title + "\n")
 					}
@@ -624,8 +634,8 @@ func buildFullMarkdown(tabs []Tab, teamName string, locale string) string {
 		case TabTypeLink:
 			b.WriteString("- " + tabIcon(t, "🌐 ") + "[" + t.Title + "](" + t.URL + ")\n")
 		case TabTypePage:
-			if t.PostID != "" && teamName != "" {
-				b.WriteString("- " + tabIcon(t, "📄 ") + "[" + t.Title + "](/" + teamName + "/pl/" + t.PostID + ")\n")
+			if permalink := permalinkForPost(teamName, t.PostID); permalink != "" {
+				b.WriteString("- " + tabIcon(t, "📄 ") + "[" + t.Title + "](" + permalink + ")\n")
 			} else {
 				b.WriteString("- " + tabIcon(t, "📄 ") + t.Title + "\n")
 			}
@@ -641,8 +651,8 @@ func buildFullMarkdown(tabs []Tab, teamName string, locale string) string {
 				case TabTypeLink:
 					b.WriteString("- " + tabIcon(ct, "🌐 ") + "[" + ct.Title + "](" + ct.URL + ")\n")
 				case TabTypePage:
-					if ct.PostID != "" && teamName != "" {
-						b.WriteString("- " + tabIcon(ct, "📄 ") + "[" + ct.Title + "](/" + teamName + "/pl/" + ct.PostID + ")\n")
+					if permalink := permalinkForPost(teamName, ct.PostID); permalink != "" {
+						b.WriteString("- " + tabIcon(ct, "📄 ") + "[" + ct.Title + "](" + permalink + ")\n")
 					} else {
 						b.WriteString("- " + tabIcon(ct, "📄 ") + ct.Title + "\n")
 					}
@@ -651,6 +661,74 @@ func buildFullMarkdown(tabs []Tab, teamName string, locale string) string {
 		}
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+func (p *Plugin) ensurePagePostLinks(channelID string, tabs []Tab) []Tab {
+	updated := false
+	result := append([]Tab(nil), tabs...)
+	now := time.Now().UnixMilli()
+
+	for i := range result {
+		t := &result[i]
+		if t.Type != TabTypePage || t.PostID != "" {
+			continue
+		}
+
+		pageContent := t.Content
+		if pageContent == "" {
+			pageContent = "*(empty page)*"
+		}
+		post := &model.Post{
+			ChannelId: channelID,
+			UserId:    p.botUserID,
+			Message:   "# " + t.Title + "\n\n" + pageContent,
+		}
+		post.AddProp("channel_tabs_page", true)
+
+		created, appErr := p.API.CreatePost(post)
+		if appErr != nil {
+			p.API.LogError("ensurePagePostLinks: failed to create page post", "tab_id", t.ID, "error", appErr.Error())
+			continue
+		}
+
+		t.PostID = created.Id
+		t.UpdatedAt = now
+		updated = true
+	}
+
+	if !updated {
+		return tabs
+	}
+
+	latest, oldRaw, err := p.getChannelTabsData(channelID)
+	if err != nil {
+		p.API.LogError("ensurePagePostLinks: failed to reload tabs", "error", err.Error())
+		return result
+	}
+
+	postIDs := make(map[string]string, len(result))
+	for _, t := range result {
+		if t.Type == TabTypePage && t.PostID != "" {
+			postIDs[t.ID] = t.PostID
+		}
+	}
+
+	changed := false
+	for i := range latest.Tabs {
+		if postID, ok := postIDs[latest.Tabs[i].ID]; ok && latest.Tabs[i].PostID == "" {
+			latest.Tabs[i].PostID = postID
+			latest.Tabs[i].UpdatedAt = now
+			changed = true
+		}
+	}
+
+	if changed {
+		if err := p.saveChannelTabsData(latest, oldRaw); err != nil {
+			p.API.LogError("ensurePagePostLinks: failed to persist post IDs", "error", err.Error())
+		}
+	}
+
+	return result
 }
 
 // ---------- fallback post management ----------
@@ -729,8 +807,8 @@ func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab) {
 		}
 	}
 
+	tabs = p.ensurePagePostLinks(channelID, tabs)
 	header := buildCompactMarkdown(tabs, teamName)
-
 	postID := p.ensureFallbackPost(channelID, tabs, teamName)
 
 	if len([]rune(header)) > maxHeaderLen {
@@ -741,8 +819,8 @@ func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab) {
 		}
 
 		var moreLink string
-		if postID != "" && teamName != "" {
-			permalink := "/" + teamName + "/pl/" + postID
+		if postID != "" {
+			permalink := permalinkForPost(teamName, postID)
 			moreLink = "\n[📑 " + linkText + "](" + permalink + ")"
 		}
 
