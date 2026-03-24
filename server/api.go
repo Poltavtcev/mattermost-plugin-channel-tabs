@@ -631,6 +631,18 @@ func upsertChannelTabsHint(existingHeader, hintLine string) string {
 	return result + "\n" + hintLine
 }
 
+func removeChannelTabsHintLines(header string) string {
+	lines := strings.Split(header, "\n")
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if isChannelTabsHintLine(line) {
+			continue
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, "\n")
+}
+
 func buildCompactMarkdown(tabs []Tab, teamName string) string {
 	roots, children := partitionTabs(tabs)
 
@@ -929,4 +941,87 @@ func (p *Plugin) publishTabsUpdated(channelID string) {
 	p.API.PublishWebSocketEvent("tabs_updated", map[string]any{
 		"channel_id": channelID,
 	}, &model.WebsocketBroadcast{ChannelId: channelID})
+}
+
+func (p *Plugin) cleanupManagedHeaders() {
+	channelIDs := p.listManagedChannelIDs()
+	for _, channelID := range channelIDs {
+		p.cleanupChannelHeader(channelID)
+	}
+}
+
+func (p *Plugin) listManagedChannelIDs() []string {
+	const (
+		pageSize = 200
+		tabPref  = "channel_tabs_"
+	)
+	seen := map[string]struct{}{}
+	page := 0
+	for {
+		keys, appErr := p.API.KVList(page, pageSize)
+		if appErr != nil {
+			p.API.LogError("listManagedChannelIDs: KVList failed", "error", appErr.Error())
+			break
+		}
+		if len(keys) == 0 {
+			break
+		}
+		for _, key := range keys {
+			switch {
+			case strings.HasPrefix(key, tabPref):
+				seen[strings.TrimPrefix(key, tabPref)] = struct{}{}
+			case strings.HasPrefix(key, fallbackPostKVPrefix):
+				seen[strings.TrimPrefix(key, fallbackPostKVPrefix)] = struct{}{}
+			}
+		}
+		if len(keys) < pageSize {
+			break
+		}
+		page++
+	}
+
+	ids := make([]string, 0, len(seen))
+	for id := range seen {
+		if id != "" {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+func (p *Plugin) cleanupChannelHeader(channelID string) {
+	channel, appErr := p.API.GetChannel(channelID)
+	if appErr != nil || channel == nil {
+		return
+	}
+	original := channel.Header
+	if original == "" {
+		return
+	}
+
+	header := removeChannelTabsHintLines(original)
+
+	var teamName string
+	if channel.TeamId != "" {
+		if team, teamErr := p.API.GetTeam(channel.TeamId); teamErr == nil && team != nil {
+			teamName = team.Name
+		}
+	}
+
+	tabs, _, err := p.getChannelTabsData(channelID)
+	if err == nil && tabs != nil {
+		full := buildCompactMarkdown(tabs.Tabs, teamName)
+		if strings.TrimSpace(original) == strings.TrimSpace(full) {
+			// Header fully managed by plugin before disable/deactivate.
+			header = ""
+		}
+	}
+
+	if header == original {
+		return
+	}
+	channel.Header = strings.TrimRight(header, "\n")
+	if _, appErr = p.API.UpdateChannel(channel); appErr != nil {
+		p.API.LogError("cleanupChannelHeader: failed to update", "channel_id", channelID, "error", appErr.Error())
+	}
 }

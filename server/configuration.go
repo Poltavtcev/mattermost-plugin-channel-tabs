@@ -71,6 +71,7 @@ func (p *Plugin) setConfiguration(configuration *configuration) {
 }
 
 func (p *Plugin) OnConfigurationChange() error {
+	prev := p.getConfiguration().Clone()
 	configuration := new(configuration)
 
 	if err := p.API.LoadPluginConfiguration(configuration); err != nil {
@@ -78,6 +79,9 @@ func (p *Plugin) OnConfigurationChange() error {
 	}
 
 	p.setConfiguration(configuration)
+	if prev.IsHeaderSyncEnabled() && !configuration.IsHeaderSyncEnabled() {
+		p.cleanupManagedHeaders()
+	}
 
 	return nil
 }

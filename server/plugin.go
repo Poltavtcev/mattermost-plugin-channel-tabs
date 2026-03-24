@@ -43,5 +43,6 @@ func (p *Plugin) OnActivate() error {
 }
 
 func (p *Plugin) OnDeactivate() error {
+	p.cleanupManagedHeaders()
 	return nil
 }
