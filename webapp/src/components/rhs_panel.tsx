@@ -84,7 +84,7 @@ const RHSPanel: React.FC = () => {
     const [deleteTarget, setDeleteTarget] = useState<Tab | null>(null);
     const [canManage, setCanManage] = useState(false);
     const [viewingPageId, setViewingPageId] = useState<string | null>(null);
-    const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+    const [expandedFolderId, setExpandedFolderId] = useState<string | null>(null);
     const [addToFolderId, setAddToFolderId] = useState<string | undefined>(undefined);
     const [dropIndicator, setDropIndicator] = useState<{id: string; zone: DropZone} | null>(null);
 
@@ -117,7 +117,7 @@ const RHSPanel: React.FC = () => {
             dispatch(loadTabs(channelId) as any);
         }
         setViewingPageId(null);
-        setExpandedFolders(new Set());
+        setExpandedFolderId(null);
     }, [channelId, dispatch]);
 
     useEffect(() => {
@@ -163,15 +163,7 @@ const RHSPanel: React.FC = () => {
         } else if (tab.type === 'page') {
             setViewingPageId(tab.id);
         } else if (tab.type === 'folder') {
-            setExpandedFolders((prev) => {
-                const next = new Set(prev);
-                if (next.has(tab.id)) {
-                    next.delete(tab.id);
-                } else {
-                    next.add(tab.id);
-                }
-                return next;
-            });
+            setExpandedFolderId((prev) => (prev === tab.id ? null : tab.id));
         }
     }, []);
 
@@ -289,7 +281,7 @@ const RHSPanel: React.FC = () => {
             try {
                 await api.moveTab(channelId, srcTab.id, targetTab.id);
                 dispatch(loadTabs(channelId) as any);
-                setExpandedFolders((prev) => new Set(prev).add(targetTab.id));
+                setExpandedFolderId(targetTab.id);
             } catch {
                 // silent
             }
@@ -339,7 +331,7 @@ const RHSPanel: React.FC = () => {
 
     const renderTabItem = (tab: Tab, isChild = false) => {
         const isFolderTab = tab.type === 'folder';
-        const isExpanded = expandedFolders.has(tab.id);
+        const isExpanded = expandedFolderId === tab.id;
         const children = childrenByFolder[tab.id] || [];
         const indicator = dropIndicator?.id === tab.id ? dropIndicator.zone : null;
 

@@ -7,8 +7,9 @@ import (
 )
 
 type configuration struct {
-	MaxTabsPerChannel int  `json:"MaxTabsPerChannel"`
-	SyncTabsToHeader  bool `json:"SyncTabsToHeader"`
+	MaxTabsPerChannel int    `json:"MaxTabsPerChannel"`
+	SyncTabsToHeader  bool   `json:"SyncTabsToHeader"`
+	HeaderDisplayMode string `json:"HeaderDisplayMode"`
 }
 
 func (c *configuration) Clone() *configuration {
@@ -24,6 +25,22 @@ func (c *configuration) GetMaxTabs() int {
 		return 50
 	}
 	return c.MaxTabsPerChannel
+}
+
+func (c *configuration) GetHeaderDisplayMode() string {
+	switch c.HeaderDisplayMode {
+	case "none", "hint", "full":
+		return c.HeaderDisplayMode
+	default:
+		if c.SyncTabsToHeader {
+			return "full"
+		}
+		return "none"
+	}
+}
+
+func (c *configuration) IsHeaderSyncEnabled() bool {
+	return c.GetHeaderDisplayMode() != "none"
 }
 
 func (p *Plugin) getConfiguration() *configuration {

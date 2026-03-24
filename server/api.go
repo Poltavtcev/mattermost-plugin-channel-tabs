@@ -197,7 +197,7 @@ func (p *Plugin) handleCreateTab(w http.ResponseWriter, r *http.Request) {
 		newTab.Format = "markdown"
 
 		cfg := p.getConfiguration()
-		if cfg.SyncTabsToHeader {
+		if cfg.IsHeaderSyncEnabled() {
 			pageContent := req.Content
 			if pageContent == "" {
 				pageContent = "*(empty page)*"
@@ -318,7 +318,7 @@ func (p *Plugin) handleUpdatePageContent(w http.ResponseWriter, r *http.Request)
 	tab.UpdatedAt = time.Now().UnixMilli()
 
 	cfg := p.getConfiguration()
-	if cfg.SyncTabsToHeader && tab.PostID != "" {
+	if cfg.IsHeaderSyncEnabled() && tab.PostID != "" {
 		post, appErr := p.API.GetPost(tab.PostID)
 		if appErr == nil && post != nil {
 			postContent := req.Content
@@ -499,8 +499,9 @@ func (p *Plugin) handleReorderTabs(w http.ResponseWriter, r *http.Request) {
 func (p *Plugin) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	cfg := p.getConfiguration()
 	writeJSON(w, http.StatusOK, map[string]any{
-		"max_tabs":         cfg.GetMaxTabs(),
-		"sync_tabs_header": cfg.SyncTabsToHeader,
+		"max_tabs":            cfg.GetMaxTabs(),
+		"sync_tabs_header":    cfg.IsHeaderSyncEnabled(),
+		"header_display_mode": cfg.GetHeaderDisplayMode(),
 	})
 }
 
@@ -514,7 +515,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func (p *Plugin) afterTabsChanged(channelID string, tabs []Tab) {
 	cfg := p.getConfiguration()
-	if cfg.SyncTabsToHeader {
+	if cfg.IsHeaderSyncEnabled() {
 		p.syncTabsToChannelHeader(channelID, tabs)
 	}
 	p.publishTabsUpdated(channelID)
@@ -576,7 +577,10 @@ func partitionTabs(tabs []Tab) (roots []sortable, children map[string][]sortable
 
 const maxHeaderLen = 1024
 
-var relativeFileLinkRe = regexp.MustCompile(`\((/api/v4/files/[a-zA-Z0-9]+)\)`)
+var (
+	relativeFileLinkRe = regexp.MustCompile(`\((/api/v4/files/[a-zA-Z0-9]+)\)`)
+	headerHintLinkRe   = regexp.MustCompile(`^\[📑 [^\]]+\]\([^)]+\)$`)
+)
 
 func (p *Plugin) absoluteFileLinks(markdown string) string {
 	if markdown == "" || !strings.Contains(markdown, "/api/v4/files/") {
@@ -590,6 +594,41 @@ func (p *Plugin) absoluteFileLinks(markdown string) string {
 
 	siteURL := strings.TrimRight(*cfg.ServiceSettings.SiteURL, "/")
 	return relativeFileLinkRe.ReplaceAllString(markdown, "("+siteURL+"$1)")
+}
+
+func isChannelTabsHintLine(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return false
+	}
+	if headerHintLinkRe.MatchString(trimmed) {
+		return strings.Contains(trimmed, "Channel Tabs") || strings.Contains(trimmed, "Вкладки каналу")
+	}
+	if strings.HasPrefix(trimmed, "📑 ") {
+		return strings.Contains(trimmed, "Channel Tabs") || strings.Contains(trimmed, "Вкладки каналу")
+	}
+	return false
+}
+
+func upsertChannelTabsHint(existingHeader, hintLine string) string {
+	lines := strings.Split(existingHeader, "\n")
+	found := false
+	for i, line := range lines {
+		if !isChannelTabsHintLine(line) {
+			continue
+		}
+		lines[i] = hintLine
+		found = true
+		break
+	}
+	if found {
+		return strings.Join(lines, "\n")
+	}
+	result := strings.TrimRight(existingHeader, "\n")
+	if strings.TrimSpace(result) == "" {
+		return hintLine
+	}
+	return result + "\n" + hintLine
 }
 
 func buildCompactMarkdown(tabs []Tab, teamName string) string {
@@ -815,6 +854,12 @@ func (p *Plugin) ensureFallbackPost(channelID string, tabs []Tab, teamName strin
 // ---------- header sync ----------
 
 func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab) {
+	cfg := p.getConfiguration()
+	mode := cfg.GetHeaderDisplayMode()
+	if mode == "none" {
+		return
+	}
+
 	channel, appErr := p.API.GetChannel(channelID)
 	if appErr != nil {
 		p.API.LogError("syncTabsToChannelHeader: failed to get channel", "error", appErr.Error())
@@ -832,6 +877,19 @@ func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab) {
 	tabs = p.ensurePagePostLinks(channelID, tabs)
 	header := buildCompactMarkdown(tabs, teamName)
 	postID := p.ensureFallbackPost(channelID, tabs, teamName)
+
+	if mode == "hint" {
+		locale := p.getServerLocale()
+		label := "Channel Tabs"
+		if strings.HasPrefix(locale, "uk") {
+			label = "Вкладки каналу"
+		}
+		hintLine := "📑 " + label
+		if postID != "" {
+			hintLine = "[📑 " + label + "](" + permalinkForPost(teamName, postID) + ")"
+		}
+		header = upsertChannelTabsHint(channel.Header, hintLine)
+	}
 
 	if len([]rune(header)) > maxHeaderLen {
 		locale := p.getServerLocale()

@@ -58,4 +58,5 @@ export interface ReorderTabsRequest {
 export interface PluginConfig {
     max_tabs: number;
     sync_tabs_header: boolean;
+    header_display_mode?: 'none' | 'hint' | 'full';
 }
