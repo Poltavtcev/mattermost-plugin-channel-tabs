@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -201,6 +202,7 @@ func (p *Plugin) handleCreateTab(w http.ResponseWriter, r *http.Request) {
 			if pageContent == "" {
 				pageContent = "*(empty page)*"
 			}
+			pageContent = p.absoluteFileLinks(pageContent)
 			post := &model.Post{
 				ChannelId: channelID,
 				UserId:    p.botUserID,
@@ -323,6 +325,7 @@ func (p *Plugin) handleUpdatePageContent(w http.ResponseWriter, r *http.Request)
 			if postContent == "" {
 				postContent = "*(empty page)*"
 			}
+			postContent = p.absoluteFileLinks(postContent)
 			post.Message = "# " + tab.Title + "\n\n" + postContent
 			if _, err := p.API.UpdatePost(post); err != nil {
 				p.API.LogError("handleUpdatePageContent: failed to update post", "error", err.Error())
@@ -573,6 +576,22 @@ func partitionTabs(tabs []Tab) (roots []sortable, children map[string][]sortable
 
 const maxHeaderLen = 1024
 
+var relativeFileLinkRe = regexp.MustCompile(`\((/api/v4/files/[a-zA-Z0-9]+)\)`)
+
+func (p *Plugin) absoluteFileLinks(markdown string) string {
+	if markdown == "" || !strings.Contains(markdown, "/api/v4/files/") {
+		return markdown
+	}
+
+	cfg := p.API.GetConfig()
+	if cfg == nil || cfg.ServiceSettings.SiteURL == nil || *cfg.ServiceSettings.SiteURL == "" {
+		return markdown
+	}
+
+	siteURL := strings.TrimRight(*cfg.ServiceSettings.SiteURL, "/")
+	return relativeFileLinkRe.ReplaceAllString(markdown, "("+siteURL+"$1)")
+}
+
 func buildCompactMarkdown(tabs []Tab, teamName string) string {
 	roots, children := partitionTabs(tabs)
 
@@ -680,6 +699,7 @@ func (p *Plugin) ensurePagePostLinks(channelID string, tabs []Tab) []Tab {
 		if pageContent == "" {
 			pageContent = "*(empty page)*"
 		}
+		pageContent = p.absoluteFileLinks(pageContent)
 		post := &model.Post{
 			ChannelId: channelID,
 			UserId:    p.botUserID,

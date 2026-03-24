@@ -113,7 +113,7 @@ const PageEditor: React.FC<PageEditorProps> = ({channelId, initialContent, onSav
         try {
             const uploaded = await api.uploadFile(channelId, file);
             const isImage = uploaded.mime_type?.startsWith('image/');
-            const fileURL = `/api/v4/files/${uploaded.id}`;
+            const fileURL = `${window.location.origin}/api/v4/files/${uploaded.id}`;
             const markdown = isImage ?
                 `![${uploaded.name}](${fileURL})` :
                 `[${uploaded.name}](${fileURL})`;
