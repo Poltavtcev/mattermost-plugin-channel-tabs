@@ -32,17 +32,17 @@
             },
             {
                 "key": "SyncTabsToHeader",
-                "display_name": "Sync Tabs to Channel Header",
+                "display_name": "Duplicate Tabs in Channel (Bot Posts)",
                 "type": "bool",
                 "default": false,
-                "help_text": "Legacy setting kept for backward compatibility. If Header Display Mode is not set, enabling this will use Full mode."
+                "help_text": "When enabled, the plugin creates/updates bot posts in the channel for Page tabs (and the navigation fallback post). Required for the full tabs list in the channel header."
             },
             {
                 "key": "HeaderDisplayMode",
                 "display_name": "Header Display Mode",
                 "type": "radio",
                 "default": "none",
-                "help_text": "Choose how channel tabs appear in the channel header.",
+                "help_text": "Choose how channel tabs appear in the channel header. If bot posts are disabled, the full list is forced to hint-only and the hint link goes to the RHS view.",
                 "options": [
                     {
                         "display_name": "Do not display in header",

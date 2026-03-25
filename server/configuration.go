@@ -28,18 +28,28 @@ func (c *configuration) GetMaxTabs() int {
 }
 
 func (c *configuration) GetHeaderDisplayMode() string {
-	switch c.HeaderDisplayMode {
-	case "none", "hint", "full":
-		return c.HeaderDisplayMode
-	default:
+	if c.HeaderDisplayMode == "" {
+		// Backward compatibility for older configs (when the new HeaderDisplayMode setting didn't exist).
 		if c.SyncTabsToHeader {
 			return "full"
 		}
 		return "none"
 	}
+
+	switch c.HeaderDisplayMode {
+	case "none", "hint", "full":
+		return c.HeaderDisplayMode
+	default:
+		return "none"
+	}
 }
 
-func (c *configuration) IsHeaderSyncEnabled() bool {
+func (c *configuration) IsBotPostsEnabled() bool {
+	// Legacy key; the meaning is now: whether the plugin is allowed to create/update bot posts in the channel.
+	return c.SyncTabsToHeader
+}
+
+func (c *configuration) IsHeaderOutputEnabled() bool {
 	return c.GetHeaderDisplayMode() != "none"
 }
 
@@ -79,8 +89,20 @@ func (p *Plugin) OnConfigurationChange() error {
 	}
 
 	p.setConfiguration(configuration)
-	if prev.IsHeaderSyncEnabled() && !configuration.IsHeaderSyncEnabled() {
+
+	prevMode := prev.GetHeaderDisplayMode()
+	newMode := configuration.GetHeaderDisplayMode()
+	prevBot := prev.IsBotPostsEnabled()
+	newBot := configuration.IsBotPostsEnabled()
+
+	// Any switch between modes/bot-posts affects header content. Best-effort cleanup first.
+	if prevMode != newMode || prevBot != newBot {
 		p.cleanupManagedHeaders()
+	}
+
+	if configuration.IsHeaderOutputEnabled() {
+		// Ensure header gets updated immediately after settings change (tabs themselves might not change).
+		p.syncManagedChannelHeaders()
 	}
 
 	return nil

@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -34,6 +36,17 @@ func (p *Plugin) initRouter() *mux.Router {
 }
 
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			p.API.LogError(
+				"Channel Tabs plugin panic",
+				"error", fmt.Sprint(rec),
+				"stack", string(debug.Stack()),
+			)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
+	}()
+
 	p.router.ServeHTTP(w, r)
 }
 
@@ -197,7 +210,7 @@ func (p *Plugin) handleCreateTab(w http.ResponseWriter, r *http.Request) {
 		newTab.Format = "markdown"
 
 		cfg := p.getConfiguration()
-		if cfg.IsHeaderSyncEnabled() {
+		if cfg.IsBotPostsEnabled() {
 			pageContent := req.Content
 			if pageContent == "" {
 				pageContent = "*(empty page)*"
@@ -318,7 +331,7 @@ func (p *Plugin) handleUpdatePageContent(w http.ResponseWriter, r *http.Request)
 	tab.UpdatedAt = time.Now().UnixMilli()
 
 	cfg := p.getConfiguration()
-	if cfg.IsHeaderSyncEnabled() && tab.PostID != "" {
+	if cfg.IsBotPostsEnabled() && tab.PostID != "" {
 		post, appErr := p.API.GetPost(tab.PostID)
 		if appErr == nil && post != nil {
 			postContent := req.Content
@@ -500,7 +513,7 @@ func (p *Plugin) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	cfg := p.getConfiguration()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"max_tabs":            cfg.GetMaxTabs(),
-		"sync_tabs_header":    cfg.IsHeaderSyncEnabled(),
+		"sync_tabs_header":    cfg.IsBotPostsEnabled(),
 		"header_display_mode": cfg.GetHeaderDisplayMode(),
 	})
 }
@@ -515,7 +528,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func (p *Plugin) afterTabsChanged(channelID string, tabs []Tab) {
 	cfg := p.getConfiguration()
-	if cfg.IsHeaderSyncEnabled() {
+	if cfg.IsHeaderOutputEnabled() {
 		p.syncTabsToChannelHeader(channelID, tabs)
 	}
 	p.publishTabsUpdated(channelID)
@@ -551,6 +564,19 @@ func permalinkForPost(teamName, postID string) string {
 		return "/" + teamName + "/pl/" + postID
 	}
 	return "/pl/" + postID
+}
+
+func (p *Plugin) rhsPopoutLink(teamName, teamID string) string {
+	const pluginID = "channel-tabs"
+
+	path := "/_popout/rhs/" + url.PathEscape(teamName) + "/" + url.PathEscape(teamID) + "/plugin/" + pluginID
+	cfg := p.API.GetConfig()
+	if cfg == nil || cfg.ServiceSettings.SiteURL == nil || *cfg.ServiceSettings.SiteURL == "" {
+		return path
+	}
+
+	siteURL := strings.TrimRight(*cfg.ServiceSettings.SiteURL, "/")
+	return siteURL + path
 }
 
 func partitionTabs(tabs []Tab) (roots []sortable, children map[string][]sortable) {
@@ -629,6 +655,21 @@ func upsertChannelTabsHint(existingHeader, hintLine string) string {
 		return hintLine
 	}
 	return result + "\n" + hintLine
+}
+
+func removeChannelTabsLegacyEntries(header string) string {
+	// Best-effort cleanup: when bot posts are disabled, we shouldn't show stale
+	// plugin-generated entries (especially Page permalinks that may point to missing posts).
+	// We remove only lines containing our known page/folder icons.
+	lines := strings.Split(header, "\n")
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if strings.Contains(line, "📄") || strings.Contains(line, "📁") {
+			continue
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, "\n")
 }
 
 func removeChannelTabsHintLines(header string) string {
@@ -872,12 +913,22 @@ func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab) {
 		return
 	}
 
+	botPostsEnabled := cfg.IsBotPostsEnabled()
+
+	effectiveMode := mode
+	if mode == "full" && !botPostsEnabled {
+		// If bot posts are disabled, full header permalinks can't be guaranteed.
+		// In this case we fallback to hint-only mode.
+		effectiveMode = "hint"
+	}
+
 	channel, appErr := p.API.GetChannel(channelID)
 	if appErr != nil {
 		p.API.LogError("syncTabsToChannelHeader: failed to get channel", "error", appErr.Error())
 		return
 	}
 
+	teamID := channel.TeamId
 	var teamName string
 	if channel.TeamId != "" {
 		team, teamErr := p.API.GetTeam(channel.TeamId)
@@ -886,51 +937,76 @@ func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab) {
 		}
 	}
 
-	tabs = p.ensurePagePostLinks(channelID, tabs)
-	header := buildCompactMarkdown(tabs, teamName)
-	postID := p.ensureFallbackPost(channelID, tabs, teamName)
-
-	if mode == "hint" {
-		locale := p.getServerLocale()
-		label := "Channel Tabs"
-		if strings.HasPrefix(locale, "uk") {
-			label = "Вкладки каналу"
-		}
-		hintLine := "📑 " + label
-		if postID != "" {
-			hintLine = "[📑 " + label + "](" + permalinkForPost(teamName, postID) + ")"
-		}
-		header = upsertChannelTabsHint(channel.Header, hintLine)
+	postID := ""
+	if botPostsEnabled {
+		tabs = p.ensurePagePostLinks(channelID, tabs)
+		postID = p.ensureFallbackPost(channelID, tabs, teamName)
 	}
 
-	if len([]rune(header)) > maxHeaderLen {
-		locale := p.getServerLocale()
-		linkText := "Read more..."
-		if strings.HasPrefix(locale, "uk") {
-			linkText = "Читати далі..."
-		}
+	locale := p.getServerLocale()
+	label := "Channel Tabs"
+	if strings.HasPrefix(locale, "uk") {
+		label = "Вкладки каналу"
+	}
 
-		var moreLink string
-		if postID != "" {
-			permalink := permalinkForPost(teamName, postID)
-			moreLink = "\n[📑 " + linkText + "](" + permalink + ")"
-		}
+	// Full header mode: only possible when bot posts are enabled.
+	if effectiveMode == "full" {
+		header := buildCompactMarkdown(tabs, teamName)
 
-		available := max(maxHeaderLen-len([]rune(moreLink)), 1)
-
-		runes := []rune(header)
-		if available < len(runes) {
-			truncated := string(runes[:available])
-			if idx := strings.LastIndex(truncated, "\n"); idx > len(truncated)/2 {
-				truncated = truncated[:idx]
+		if len([]rune(header)) > maxHeaderLen {
+			linkText := "Read more..."
+			if strings.HasPrefix(locale, "uk") {
+				linkText = "Читати далі..."
 			}
-			header = truncated + moreLink
+
+			var moreLink string
+			if postID != "" {
+				permalink := permalinkForPost(teamName, postID)
+				moreLink = "\n[📑 " + linkText + "](" + permalink + ")"
+			}
+
+			available := max(maxHeaderLen-len([]rune(moreLink)), 1)
+			runes := []rune(header)
+			if available < len(runes) {
+				truncated := string(runes[:available])
+				if idx := strings.LastIndex(truncated, "\n"); idx > len(truncated)/2 {
+					truncated = truncated[:idx]
+				}
+				header = truncated + moreLink
+			}
 		}
+
+		if channel.Header == header {
+			return
+		}
+		channel.Header = header
+		if _, appErr = p.API.UpdateChannel(channel); appErr != nil {
+			p.API.LogError("syncTabsToChannelHeader: failed to update header", "error", appErr.Error())
+		}
+		return
 	}
 
+	// Hint mode: update only the plugin hint line, but also clear a stale full markdown header if it matches exactly.
+	fullMarkdown := buildCompactMarkdown(tabs, teamName)
+	existing := channel.Header
+	if !botPostsEnabled {
+		existing = removeChannelTabsLegacyEntries(existing)
+	} else if strings.TrimSpace(existing) == strings.TrimSpace(fullMarkdown) {
+		existing = ""
+	}
+
+	var hintLine string
+	if botPostsEnabled && postID != "" {
+		hintLine = "[📑 " + label + "](" + permalinkForPost(teamName, postID) + ")"
+	} else {
+		hintLine = "[📑 " + label + "](" + p.rhsPopoutLink(teamName, teamID) + ")"
+	}
+
+	header := upsertChannelTabsHint(existing, hintLine)
 	if channel.Header == header {
 		return
 	}
+
 	channel.Header = header
 	if _, appErr = p.API.UpdateChannel(channel); appErr != nil {
 		p.API.LogError("syncTabsToChannelHeader: failed to update header", "error", appErr.Error())
@@ -941,6 +1017,17 @@ func (p *Plugin) publishTabsUpdated(channelID string) {
 	p.API.PublishWebSocketEvent("tabs_updated", map[string]any{
 		"channel_id": channelID,
 	}, &model.WebsocketBroadcast{ChannelId: channelID})
+}
+
+func (p *Plugin) syncManagedChannelHeaders() {
+	channelIDs := p.listManagedChannelIDs()
+	for _, channelID := range channelIDs {
+		tabs, _, err := p.getChannelTabsData(channelID)
+		if err != nil || tabs == nil {
+			continue
+		}
+		p.syncTabsToChannelHeader(channelID, tabs.Tabs)
+	}
 }
 
 func (p *Plugin) cleanupManagedHeaders() {
