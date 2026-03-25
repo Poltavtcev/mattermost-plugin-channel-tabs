@@ -21,4 +21,8 @@
 ### Fixes
 
 - Fixed channel header hint popout link format to include the **channel name** (improves behavior on mobile clients when opening the Channel Tabs popout).
+- Direct messages / group messages:
+  - Allow all participants to manage tabs (not only admins).
+  - Fix header hint popout links when team slug is missing (prevents `/_popout/rhs//...`).
+  - Fix popout back button to return to the correct DM via `/{team}/messages/@username`.
 
