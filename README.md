@@ -18,17 +18,44 @@ Add customizable tabs to Mattermost channels: external links, embedded Markdown 
 
 ## Screenshots
 
-### RHS: Tabs overview (folders + icons)
-<img src="assets/screenshots/rhs-tabs.png" width="720" alt="RHS: tabs overview">
-
-### Search & filter
-<img src="assets/screenshots/rhs-search-filter.png" width="720" alt="Search and filter tabs">
-
-### Page viewer (YouTube embed)
-<img src="assets/screenshots/page-view-youtube.png" width="720" alt="Page viewer with YouTube embed">
-
-### Page editor (file upload + linked files)
-<img src="assets/screenshots/page-editor-upload.png" width="720" alt="Page editor with file upload">
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <strong>RHS: Tabs overview</strong><br/>
+      <img
+        src="assets/screenshots/rhs-tabs.png"
+        alt="RHS: tabs overview"
+        style="height: 260px; width: auto;"
+      />
+    </td>
+    <td align="center" width="50%">
+      <strong>Search & filter</strong><br/>
+      <img
+        src="assets/screenshots/rhs-search-filter.png"
+        alt="Search and filter tabs"
+        style="height: 260px; width: auto;"
+      />
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <strong>Page viewer (YouTube embed)</strong><br/>
+      <img
+        src="assets/screenshots/page-view-youtube.png"
+        alt="Page viewer with YouTube embed"
+        style="height: 260px; width: auto;"
+      />
+    </td>
+    <td align="center" width="50%">
+      <strong>Page editor (file upload + linked files)</strong><br/>
+      <img
+        src="assets/screenshots/page-editor-upload.png"
+        alt="Page editor with file upload"
+        style="height: 260px; width: auto;"
+      />
+    </td>
+  </tr>
+</table>
 
 ## Requirements
 
