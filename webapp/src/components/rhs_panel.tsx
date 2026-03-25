@@ -206,15 +206,10 @@ const RHSPanel: React.FC = () => {
     }, [dispatch]);
 
     const handleBackToChannel = useCallback(() => {
-        if (!channelInfo?.name || !effectiveTeamName) {
-            return;
-        }
-        const isDirectOrGroup = channelInfo.type === 'D' || channelInfo.type === 'G';
-        const base = `${window.location.origin}/${effectiveTeamName}`;
-        const url = isDirectOrGroup ? `${base}/messages/${channelInfo.name}` : `${base}/channels/${channelInfo.name}`;
+        // In popout mode, the most reliable behavior is to return to the opener window
+        // (the exact conversation/channel the user came from), instead of guessing a URL.
         try {
             if (window.opener && !window.opener.closed) {
-                window.opener.location.href = url;
                 window.opener.focus();
                 window.close();
                 return;
@@ -222,6 +217,20 @@ const RHSPanel: React.FC = () => {
         } catch {
             // fall through
         }
+
+        // If opener is unavailable (some mobile/webview cases), best-effort go back.
+        if (window.history.length > 1) {
+            window.history.back();
+            return;
+        }
+
+        if (!channelInfo?.name || !effectiveTeamName) {
+            return;
+        }
+
+        const isDirectOrGroup = channelInfo.type === 'D' || channelInfo.type === 'G';
+        const base = `${window.location.origin}/${effectiveTeamName}`;
+        const url = isDirectOrGroup ? `${base}/messages/${channelInfo.name}` : `${base}/channels/${channelInfo.name}`;
         window.location.href = url;
     }, [channelInfo, effectiveTeamName]);
 
