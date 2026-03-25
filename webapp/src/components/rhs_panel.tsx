@@ -85,9 +85,9 @@ const RHSPanel: React.FC = () => {
     const isPopout = useMemo(() => window.location.pathname.startsWith('/_popout/'), []);
 
     const channelInfo = useSelector((state: GlobalState) => {
-        const entities = (state as unknown as {entities: {channels: {channels: Record<string, {name: string; team_id: string}>}}}).entities;
+        const entities = (state as unknown as {entities: {channels: {channels: Record<string, {name: string; team_id: string; type?: string}>}}}).entities;
         const ch = entities.channels.channels?.[channelId];
-        return ch ? {name: ch.name, teamId: ch.team_id} : null;
+        return ch ? {name: ch.name, teamId: ch.team_id, type: ch.type || ''} : null;
     });
 
     const teamName = useSelector((state: GlobalState) => {
@@ -126,8 +126,9 @@ const RHSPanel: React.FC = () => {
     useEffect(() => {
         const isSystemAdmin = currentUser.roles.includes('system_admin');
         const isChannelAdmin = channelMember?.scheme_admin || false;
-        setCanManage(isSystemAdmin || isChannelAdmin);
-    }, [currentUser.roles, channelMember]);
+        const isDirectOrGroup = channelInfo?.type === 'D' || channelInfo?.type === 'G';
+        setCanManage(isSystemAdmin || isChannelAdmin || Boolean(isDirectOrGroup));
+    }, [currentUser.roles, channelMember, channelInfo?.type]);
 
     useEffect(() => {
         if (channelId) {

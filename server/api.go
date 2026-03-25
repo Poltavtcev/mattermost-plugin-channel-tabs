@@ -251,13 +251,14 @@ func (p *Plugin) handleCreateTab(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p.afterTabsChanged(channelID, tabs.Tabs)
+	p.afterTabsChanged(channelID, tabs.Tabs, userID)
 	writeJSON(w, http.StatusCreated, newTab)
 }
 
 func (p *Plugin) handleUpdateTab(w http.ResponseWriter, r *http.Request) {
 	channelID := r.URL.Query().Get("channel_id")
 	tabID := mux.Vars(r)["tab_id"]
+	userID := r.Header.Get("Mattermost-User-ID")
 
 	var req UpdateTabRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -303,13 +304,14 @@ func (p *Plugin) handleUpdateTab(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p.afterTabsChanged(channelID, tabs.Tabs)
+	p.afterTabsChanged(channelID, tabs.Tabs, userID)
 	writeJSON(w, http.StatusOK, tabs)
 }
 
 func (p *Plugin) handleUpdatePageContent(w http.ResponseWriter, r *http.Request) {
 	channelID := r.URL.Query().Get("channel_id")
 	tabID := mux.Vars(r)["tab_id"]
+	userID := r.Header.Get("Mattermost-User-ID")
 
 	var req UpdatePageContentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -362,13 +364,14 @@ func (p *Plugin) handleUpdatePageContent(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	p.afterTabsChanged(channelID, tabs.Tabs)
+	p.afterTabsChanged(channelID, tabs.Tabs, userID)
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
 func (p *Plugin) handleMoveTab(w http.ResponseWriter, r *http.Request) {
 	channelID := r.URL.Query().Get("channel_id")
 	tabID := mux.Vars(r)["tab_id"]
+	userID := r.Header.Get("Mattermost-User-ID")
 
 	var req MoveTabRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -424,13 +427,14 @@ func (p *Plugin) handleMoveTab(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p.afterTabsChanged(channelID, tabs.Tabs)
+	p.afterTabsChanged(channelID, tabs.Tabs, userID)
 	writeJSON(w, http.StatusOK, tabs)
 }
 
 func (p *Plugin) handleDeleteTab(w http.ResponseWriter, r *http.Request) {
 	channelID := r.URL.Query().Get("channel_id")
 	tabID := mux.Vars(r)["tab_id"]
+	userID := r.Header.Get("Mattermost-User-ID")
 
 	tabs, oldRaw, err := p.getChannelTabsData(channelID)
 	if err != nil {
@@ -474,12 +478,13 @@ func (p *Plugin) handleDeleteTab(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p.afterTabsChanged(channelID, tabs.Tabs)
+	p.afterTabsChanged(channelID, tabs.Tabs, userID)
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (p *Plugin) handleReorderTabs(w http.ResponseWriter, r *http.Request) {
 	channelID := r.URL.Query().Get("channel_id")
+	userID := r.Header.Get("Mattermost-User-ID")
 
 	var req ReorderTabsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -516,7 +521,7 @@ func (p *Plugin) handleReorderTabs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p.afterTabsChanged(channelID, tabs.Tabs)
+	p.afterTabsChanged(channelID, tabs.Tabs, userID)
 	writeJSON(w, http.StatusOK, tabs)
 }
 
@@ -537,10 +542,10 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func (p *Plugin) afterTabsChanged(channelID string, tabs []Tab) {
+func (p *Plugin) afterTabsChanged(channelID string, tabs []Tab, actorUserID string) {
 	cfg := p.getConfiguration()
 	if cfg.IsHeaderOutputEnabled() {
-		p.syncTabsToChannelHeader(channelID, tabs)
+		p.syncTabsToChannelHeader(channelID, tabs, actorUserID)
 	}
 	p.publishTabsUpdated(channelID)
 }
@@ -618,6 +623,7 @@ const maxHeaderLen = 1024
 var (
 	relativeFileLinkRe = regexp.MustCompile(`\((/api/v4/files/[a-zA-Z0-9]+)\)`)
 	headerHintLinkRe   = regexp.MustCompile(`^\[📑 [^\]]+\]\([^)]+\)$`)
+	popoutTeamRe       = regexp.MustCompile(`/_popout/rhs/([^/]+)/`)
 )
 
 func (p *Plugin) absoluteFileLinks(markdown string) string {
@@ -918,7 +924,7 @@ func (p *Plugin) ensureFallbackPost(channelID string, tabs []Tab, teamName strin
 
 // ---------- header sync ----------
 
-func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab) {
+func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab, actorUserID string) {
 	cfg := p.getConfiguration()
 	mode := cfg.GetHeaderDisplayMode()
 	if mode == "none" {
@@ -945,6 +951,22 @@ func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab) {
 		team, teamErr := p.API.GetTeam(channel.TeamId)
 		if teamErr == nil && team != nil {
 			teamName = team.Name
+		}
+	}
+
+	// For direct/group messages, TeamId may be empty but the popout route still needs a team slug.
+	// Best-effort: actor's first team, or reuse a team slug from an existing header link.
+	if teamName == "" {
+		if actorUserID != "" {
+			teams, tErr := p.API.GetTeamsForUser(actorUserID)
+			if tErr == nil && len(teams) > 0 {
+				teamName = teams[0].Name
+			}
+		}
+		if teamName == "" {
+			if match := popoutTeamRe.FindStringSubmatch(channel.Header); len(match) == 2 {
+				teamName = match[1]
+			}
 		}
 	}
 
@@ -1037,7 +1059,7 @@ func (p *Plugin) syncManagedChannelHeaders() {
 		if err != nil || tabs == nil {
 			continue
 		}
-		p.syncTabsToChannelHeader(channelID, tabs.Tabs)
+		p.syncTabsToChannelHeader(channelID, tabs.Tabs, "")
 	}
 }
 

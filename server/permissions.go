@@ -21,9 +21,19 @@ func (p *Plugin) canManageTabs(userID, channelID string) bool {
 		return true
 	}
 
+	channel, err := p.client.Channel.Get(channelID)
+	if err != nil || channel == nil {
+		return false
+	}
+
 	member, err := p.client.Channel.GetMember(channelID, userID)
 	if err != nil {
 		return false
+	}
+
+	// In direct/group messages, all members can manage tabs in that conversation.
+	if channel.Type == model.ChannelTypeDirect || channel.Type == model.ChannelTypeGroup {
+		return true
 	}
 
 	return member.SchemeAdmin
