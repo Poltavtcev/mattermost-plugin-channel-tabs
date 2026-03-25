@@ -22,37 +22,29 @@ Add customizable tabs to Mattermost channels: external links, embedded Markdown 
   <tr>
     <td align="center" width="50%">
       <strong>RHS: Tabs overview</strong><br/>
-      <img
-        src="assets/screenshots/rhs-tabs.png"
-        alt="RHS: tabs overview"
-        style="width: 100%; max-width: 360px; height: 260px; object-fit: contain;"
-      />
+      <a href="assets/screenshots/rhs-tabs.png">
+        <img src="assets/screenshots/thumbs/rhs-tabs.png" alt="RHS: tabs overview"/>
+      </a>
     </td>
     <td align="center" width="50%">
       <strong>Search & filter</strong><br/>
-      <img
-        src="assets/screenshots/rhs-search-filter.png"
-        alt="Search and filter tabs"
-        style="width: 100%; max-width: 360px; height: 260px; object-fit: contain;"
-      />
+      <a href="assets/screenshots/rhs-search-filter.png">
+        <img src="assets/screenshots/thumbs/rhs-search-filter.png" alt="Search and filter tabs"/>
+      </a>
     </td>
   </tr>
   <tr>
     <td align="center" width="50%">
       <strong>Page viewer (YouTube embed)</strong><br/>
-      <img
-        src="assets/screenshots/page-view-youtube.png"
-        alt="Page viewer with YouTube embed"
-        style="width: 100%; max-width: 360px; height: 260px; object-fit: contain;"
-      />
+      <a href="assets/screenshots/page-view-youtube.png">
+        <img src="assets/screenshots/thumbs/page-view-youtube.png" alt="Page viewer with YouTube embed"/>
+      </a>
     </td>
     <td align="center" width="50%">
       <strong>Page editor (file upload + linked files)</strong><br/>
-      <img
-        src="assets/screenshots/page-editor-upload.png"
-        alt="Page editor with file upload"
-        style="width: 100%; max-width: 360px; height: 260px; object-fit: contain;"
-      />
+      <a href="assets/screenshots/page-editor-upload.png">
+        <img src="assets/screenshots/thumbs/page-editor-upload.png" alt="Page editor with file upload"/>
+      </a>
     </td>
   </tr>
 </table>
