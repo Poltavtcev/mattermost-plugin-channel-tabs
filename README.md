@@ -25,7 +25,7 @@ Add customizable tabs to Mattermost channels: external links, embedded Markdown 
       <img
         src="assets/screenshots/rhs-tabs.png"
         alt="RHS: tabs overview"
-        style="height: 260px; width: auto;"
+        style="width: 100%; max-width: 360px; height: 260px; object-fit: contain;"
       />
     </td>
     <td align="center" width="50%">
@@ -33,7 +33,7 @@ Add customizable tabs to Mattermost channels: external links, embedded Markdown 
       <img
         src="assets/screenshots/rhs-search-filter.png"
         alt="Search and filter tabs"
-        style="height: 260px; width: auto;"
+        style="width: 100%; max-width: 360px; height: 260px; object-fit: contain;"
       />
     </td>
   </tr>
@@ -43,7 +43,7 @@ Add customizable tabs to Mattermost channels: external links, embedded Markdown 
       <img
         src="assets/screenshots/page-view-youtube.png"
         alt="Page viewer with YouTube embed"
-        style="height: 260px; width: auto;"
+        style="width: 100%; max-width: 360px; height: 260px; object-fit: contain;"
       />
     </td>
     <td align="center" width="50%">
@@ -51,7 +51,7 @@ Add customizable tabs to Mattermost channels: external links, embedded Markdown 
       <img
         src="assets/screenshots/page-editor-upload.png"
         alt="Page editor with file upload"
-        style="height: 260px; width: auto;"
+        style="width: 100%; max-width: 360px; height: 260px; object-fit: contain;"
       />
     </td>
   </tr>
