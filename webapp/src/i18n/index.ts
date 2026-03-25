@@ -23,6 +23,7 @@ const messages: Record<string, Record<string, string>> = {
         'rhs.emptyFolder': 'Empty folder',
         'rhs.addItem': '+ Add',
         'rhs.backToChannel': 'Back to channel',
+        'rhs.backToConversation': 'Back to conversation',
 
         // Tab Modal
         'modal.editTab': 'Edit Tab',
@@ -123,6 +124,7 @@ const messages: Record<string, Record<string, string>> = {
         'rhs.emptyFolder': 'Порожня папка',
         'rhs.addItem': '+ Додати',
         'rhs.backToChannel': 'Повернутися в канал',
+        'rhs.backToConversation': 'Повернутися до розмови',
 
         // Tab Modal
         'modal.editTab': 'Редагувати вкладку',

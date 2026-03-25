@@ -96,6 +96,18 @@ const RHSPanel: React.FC = () => {
         return id ? entities.teams.teams?.[id]?.name || '' : '';
     });
 
+    const teamNameFromPopout = useMemo(() => {
+        if (!isPopout) {
+            return '';
+        }
+        const parts = window.location.pathname.split('/').filter(Boolean);
+
+        // /_popout/rhs/<team>/<channel>/plugin/<pluginId>
+        return parts[2] === 'rhs' && parts[3] ? parts[3] : '';
+    }, [isPopout]);
+
+    const effectiveTeamName = teamName || teamNameFromPopout;
+
     const [deleteTarget, setDeleteTarget] = useState<Tab | null>(null);
     const [canManage, setCanManage] = useState(false);
     const [viewingPageId, setViewingPageId] = useState<string | null>(null);
@@ -194,10 +206,12 @@ const RHSPanel: React.FC = () => {
     }, [dispatch]);
 
     const handleBackToChannel = useCallback(() => {
-        if (!channelInfo?.name || !teamName) {
+        if (!channelInfo?.name || !effectiveTeamName) {
             return;
         }
-        const url = `${window.location.origin}/${teamName}/channels/${channelInfo.name}`;
+        const isDirectOrGroup = channelInfo.type === 'D' || channelInfo.type === 'G';
+        const base = `${window.location.origin}/${effectiveTeamName}`;
+        const url = isDirectOrGroup ? `${base}/messages/${channelInfo.name}` : `${base}/channels/${channelInfo.name}`;
         try {
             if (window.opener && !window.opener.closed) {
                 window.opener.location.href = url;
@@ -209,7 +223,7 @@ const RHSPanel: React.FC = () => {
             // fall through
         }
         window.location.href = url;
-    }, [channelInfo, teamName]);
+    }, [channelInfo, effectiveTeamName]);
 
     const handleEditTab = useCallback((tab: Tab) => {
         dispatch(setEditingTab(tab));
@@ -628,9 +642,9 @@ const RHSPanel: React.FC = () => {
                             <button
                                 className='rhs-tabs-back-btn'
                                 onClick={handleBackToChannel}
-                                disabled={!channelInfo?.name || !teamName}
+                                disabled={!channelInfo?.name || !effectiveTeamName}
                             >
-                                {'←'} {t('rhs.backToChannel')}
+                                {'←'} {(channelInfo?.type === 'D' || channelInfo?.type === 'G') ? t('rhs.backToConversation') : t('rhs.backToChannel')}
                             </button>
                         )}
                     </div>
