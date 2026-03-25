@@ -1,9 +1,10 @@
 # Changelog
 
-## v1.3.4
+## v1.3.3
 
 ### New
 
+- Added a **Back to channel** button in the RHS popout window.
 - Added **search + filter** controls in the Channel Tabs RHS:
   - Search by tab title
   - Search by link URL (for External link tabs)
@@ -13,4 +14,9 @@
 ### Improvements
 
 - Embedded YouTube links in Page tabs now render reliably as an `<iframe>` embed (includes `referrerPolicy` fix for YouTube player error 153).
+- Stabilized header **hint mode** behavior when bot posts are disabled.
+
+### Fixes
+
+- Fixed channel header hint popout link format to include the **channel name** (improves behavior on mobile clients when opening the Channel Tabs popout).
 
