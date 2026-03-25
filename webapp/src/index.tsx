@@ -7,10 +7,11 @@ import type {GlobalState} from '@mattermost/types/store';
 
 import type {PluginRegistry} from 'types/mattermost-webapp';
 
-import {loadTabs} from './actions';
+import {createNewTab, loadTabs} from './actions';
 import RHSPanel from './components/rhs_panel';
 import {getTranslations} from './i18n';
 import reducer from './reducers';
+import {getCurrentChannelId} from './selectors';
 
 const TabsIcon = () => (
     <svg
@@ -29,6 +30,53 @@ function getUserLocale(state: GlobalState): string {
     const userId = entities.users.currentUserId;
     const profile = entities.users.profiles?.[userId];
     return profile?.locale || 'en';
+}
+
+function sanitizeTitle(text: string, maxLen: number): string {
+    const cleaned = text.replace(/\s+/g, ' ').trim().replace(/[*_`~]/g, '').replace(/[#>]/g, '');
+    if (!cleaned) {
+        return '';
+    }
+    return cleaned.length > maxLen ? cleaned.slice(0, maxLen).trimEnd() : cleaned;
+}
+
+function getTeamNameFromState(state: GlobalState, channelId: string): string {
+    const entities = state as unknown as {
+        entities?: {
+            channels?: {channels?: Record<string, {team_id?: string}>};
+            teams?: {teams?: Record<string, {name?: string}>};
+        };
+    };
+    const teamId = entities.entities?.channels?.channels?.[channelId]?.team_id;
+    if (!teamId) {
+        return '';
+    }
+    return entities.entities?.teams?.teams?.[teamId]?.name || '';
+}
+
+function getCanManageTabs(state: GlobalState, channelId: string): boolean {
+    const entities = state as unknown as {
+        entities?: {
+            users?: {
+                currentUserId?: string;
+                profiles?: Record<string, {roles?: string[]}>;
+            };
+            channels?: {
+                membersInChannel?: Record<string, Record<string, {scheme_admin?: boolean}>>;
+            };
+        };
+    };
+
+    const userId = entities.entities?.users?.currentUserId;
+    const roles = userId ? entities.entities?.users?.profiles?.[userId]?.roles || [] : [];
+    const isSystemAdmin = roles.includes('system_admin');
+    if (isSystemAdmin) {
+        return true;
+    }
+
+    const schemeAdmin = userId ? entities.entities?.channels?.membersInChannel?.[channelId]?.[userId]?.scheme_admin || false : false;
+
+    return Boolean(schemeAdmin);
 }
 
 export default class Plugin {
@@ -69,6 +117,43 @@ export default class Plugin {
                     store.dispatch(loadTabs(channelId) as any);
                 }
             },
+        );
+
+        // Post menu action: add a link-tab to a post permalink.
+        registry.registerPostDropdownMenuAction(
+            t('post.addToTabs'),
+            ((maybePost: unknown) => {
+                const state = store.getState();
+                const channelId = getCurrentChannelId(state);
+                if (!channelId) {
+                    return;
+                }
+                if (!getCanManageTabs(state, channelId)) {
+                    return;
+                }
+
+                const post: any = maybePost as any;
+                const postId: string | undefined = typeof maybePost === 'string' ? maybePost : post?.id || post?.post_id;
+
+                if (!postId) {
+                    return;
+                }
+
+                const rawMessage: string = typeof post?.message === 'string' ? post.message : '';
+                const titleFromMessage = sanitizeTitle(rawMessage, 100);
+                const title = titleFromMessage || t('post.tabTitleDefault');
+
+                const teamName = getTeamNameFromState(state, channelId);
+                const permalinkPath = teamName ? `/${teamName}/pl/${postId}` : `/pl/${postId}`;
+                const url = `${window.location.origin}${permalinkPath}`;
+
+                store.dispatch(createNewTab(channelId, {
+                    title,
+                    type: 'link',
+                    url,
+                }) as any);
+            }) as any,
+            (() => true) as any,
         );
     }
 }

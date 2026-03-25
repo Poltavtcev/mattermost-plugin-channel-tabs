@@ -37,6 +37,7 @@ interface ChannelMember {
 }
 
 type DropZone = 'before' | 'inside' | 'after';
+type TabTypeFilter = 'all' | 'link' | 'page' | 'folder';
 
 const TAB_ICONS: Record<string, string> = {
     link: '🔗',
@@ -101,6 +102,8 @@ const RHSPanel: React.FC = () => {
     const [expandedFolderId, setExpandedFolderId] = useState<string | null>(null);
     const [addToFolderId, setAddToFolderId] = useState<string | undefined>(undefined);
     const [dropIndicator, setDropIndicator] = useState<{id: string; zone: DropZone} | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [typeFilter, setTypeFilter] = useState<TabTypeFilter>('all');
 
     const dragTabRef = useRef<Tab | null>(null);
 
@@ -132,6 +135,8 @@ const RHSPanel: React.FC = () => {
         }
         setViewingPageId(null);
         setExpandedFolderId(null);
+        setSearchQuery('');
+        setTypeFilter('all');
     }, [channelId, dispatch]);
 
     useEffect(() => {
@@ -140,7 +145,7 @@ const RHSPanel: React.FC = () => {
         }
     }, [config, dispatch]);
 
-    const rootTabs = useMemo(() => {
+    const rootTabsAll = useMemo(() => {
         return tabs.
             filter((tab) => !tab.parent_id).
             sort((a, b) => a.sort_order - b.sort_order);
@@ -272,7 +277,7 @@ const RHSPanel: React.FC = () => {
         const parentId = targetTab.parent_id || '';
         const siblings = parentId ?
             [...(childrenByFolder[parentId] || [])] :
-            [...rootTabs];
+            [...rootTabsAll];
 
         const withoutSrc = siblings.filter((s) => s.id !== srcTab.id);
 
@@ -288,7 +293,76 @@ const RHSPanel: React.FC = () => {
         ids.splice(tgtIdx, 0, srcTab.id);
 
         dispatch(reorderChannelTabs(channelId, ids) as any);
-    }, [channelId, dispatch, childrenByFolder, rootTabs]);
+    }, [channelId, dispatch, childrenByFolder, rootTabsAll]);
+
+    const filteredChildrenByFolder = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        const matchesQuery = (tab: Tab): boolean => {
+            if (!q) {
+                return true;
+            }
+            const title = tab.title || '';
+            const url = tab.type === 'link' ? (tab.url || '') : '';
+            const content = tab.type === 'page' ? (tab.content || '') : '';
+            return `${title} ${url} ${content}`.toLowerCase().includes(q);
+        };
+
+        const matchesType = (tab: Tab): boolean => {
+            if (typeFilter === 'all') {
+                return true;
+            }
+            return tab.type === typeFilter;
+        };
+
+        const map: Record<string, Tab[]> = {};
+        for (const [folderId, children] of Object.entries(childrenByFolder)) {
+            map[folderId] = children.filter((child) => matchesType(child) && matchesQuery(child));
+        }
+        return map;
+    }, [childrenByFolder, searchQuery, typeFilter]);
+
+    const filteredRootTabs = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        const matchesQuery = (tab: Tab): boolean => {
+            if (!q) {
+                return true;
+            }
+            const title = tab.title || '';
+            const url = tab.type === 'link' ? (tab.url || '') : '';
+            const content = tab.type === 'page' ? (tab.content || '') : '';
+            return `${title} ${url} ${content}`.toLowerCase().includes(q);
+        };
+
+        const matchesType = (tab: Tab): boolean => {
+            if (typeFilter === 'all') {
+                return true;
+            }
+            return tab.type === typeFilter;
+        };
+
+        return rootTabsAll.filter((tab) => {
+            if (tab.type !== 'folder') {
+                return matchesType(tab) && matchesQuery(tab);
+            }
+
+            const children = filteredChildrenByFolder[tab.id] || [];
+
+            const folderSelfByType = matchesType(tab) && matchesQuery(tab);
+            const folderSelfBySearch = Boolean(q) && matchesQuery(tab);
+
+            return folderSelfByType || folderSelfBySearch || children.length > 0;
+        });
+    }, [rootTabsAll, filteredChildrenByFolder, searchQuery, typeFilter]);
+
+    useEffect(() => {
+        if (!expandedFolderId) {
+            return;
+        }
+        const stillVisible = filteredRootTabs.some((t2) => t2.type === 'folder' && t2.id === expandedFolderId);
+        if (!stillVisible) {
+            setExpandedFolderId(null);
+        }
+    }, [expandedFolderId, filteredRootTabs]);
 
     const handleDropOnItem = useCallback(async (e: React.DragEvent, targetTab: Tab) => {
         e.preventDefault();
@@ -364,7 +438,7 @@ const RHSPanel: React.FC = () => {
     const renderTabItem = (tab: Tab, isChild = false) => {
         const isFolderTab = tab.type === 'folder';
         const isExpanded = expandedFolderId === tab.id;
-        const children = childrenByFolder[tab.id] || [];
+        const children = filteredChildrenByFolder[tab.id] || [];
         const indicator = dropIndicator?.id === tab.id ? dropIndicator.zone : null;
 
         return (
@@ -540,10 +614,32 @@ const RHSPanel: React.FC = () => {
                 </div>
             )}
 
-            {rootTabs.length === 0 ? (
+            <div className='rhs-tabs-filters'>
+                <input
+                    className='rhs-tabs-filters__search'
+                    type='text'
+                    value={searchQuery}
+                    placeholder={t('rhs.searchPlaceholder')}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    aria-label={t('rhs.searchPlaceholder')}
+                />
+                <select
+                    className='rhs-tabs-filters__select'
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value as TabTypeFilter)}
+                    aria-label='Filter tabs by type'
+                >
+                    <option value='all'>{t('rhs.filterAll')}</option>
+                    <option value='link'>{t('rhs.filterLink')}</option>
+                    <option value='page'>{t('rhs.filterPage')}</option>
+                    <option value='folder'>{t('rhs.filterFolder')}</option>
+                </select>
+            </div>
+
+            {filteredRootTabs.length === 0 ? (
                 <div className='rhs-tabs-empty'>
                     <span style={{fontSize: 40, marginBottom: 12}}>{'📑'}</span>
-                    <p>{t('rhs.noTabs')}</p>
+                    <p>{searchQuery.trim() || typeFilter !== 'all' ? t('rhs.noMatches') : t('rhs.noTabs')}</p>
                     {canManage && (
                         <p className='rhs-tabs-empty__hint'>{t('rhs.noTabsHint')}</p>
                     )}
@@ -554,7 +650,7 @@ const RHSPanel: React.FC = () => {
                     onDragOver={handleRootDragOver}
                     onDrop={handleDropOnRootZone}
                 >
-                    {rootTabs.map((tab) => renderTabItem(tab))}
+                    {filteredRootTabs.map((tab) => renderTabItem(tab))}
                 </div>
             )}
 

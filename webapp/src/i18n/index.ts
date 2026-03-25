@@ -6,6 +6,12 @@ const messages: Record<string, Record<string, string>> = {
         'rhs.noTabs': 'No tabs in this channel yet.',
         'rhs.noTabsHint': 'Click "Add Tab" to create links, pages, or folders.',
         'rhs.selectChannel': 'Select a channel to manage tabs.',
+        'rhs.searchPlaceholder': 'Search tabs...',
+        'rhs.filterAll': 'All',
+        'rhs.filterLink': 'External links',
+        'rhs.filterPage': 'Pages',
+        'rhs.filterFolder': 'Folders',
+        'rhs.noMatches': 'No tabs match your filters.',
         'rhs.hidden': 'hidden',
         'rhs.typePage': 'Page',
         'rhs.typeLink': 'External link',
@@ -87,6 +93,10 @@ const messages: Record<string, Record<string, string>> = {
         // Index (header button)
         'header.title': 'Channel Tabs',
         'header.tooltip': 'Manage channel tabs',
+
+        // Post menu action
+        'post.addToTabs': 'Add to Channel Tabs',
+        'post.tabTitleDefault': 'Post link',
     },
 
     uk: {
@@ -96,6 +106,12 @@ const messages: Record<string, Record<string, string>> = {
         'rhs.noTabs': 'У цьому каналі ще немає вкладок.',
         'rhs.noTabsHint': 'Натисніть "Додати вкладку", щоб створити посилання, сторінки або папки.',
         'rhs.selectChannel': 'Оберіть канал для керування вкладками.',
+        'rhs.searchPlaceholder': 'Пошук вкладок...',
+        'rhs.filterAll': 'Усі',
+        'rhs.filterLink': 'Зовнішні посилання',
+        'rhs.filterPage': 'Сторінки',
+        'rhs.filterFolder': 'Папки',
+        'rhs.noMatches': 'Вкладок, що відповідають фільтрам, не знайдено.',
         'rhs.hidden': 'приховано',
         'rhs.typePage': 'Сторінка',
         'rhs.typeLink': 'Зовнішнє посилання',
@@ -177,6 +193,10 @@ const messages: Record<string, Record<string, string>> = {
         // Index (header button)
         'header.title': 'Вкладки каналу',
         'header.tooltip': 'Керувати вкладками каналу',
+
+        // Post menu action
+        'post.addToTabs': 'Додати у вкладки каналу',
+        'post.tabTitleDefault': 'Посилання на пост',
     },
 };
 

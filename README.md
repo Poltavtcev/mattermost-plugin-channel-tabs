@@ -6,9 +6,11 @@ Add customizable tabs to Mattermost channels: external links, embedded Markdown 
 
 - **Link tabs** — pin external URLs to a channel for quick access
 - **Page tabs** — create rich Markdown pages directly inside a channel (backed by real Mattermost posts for full mobile compatibility)
+- **YouTube embeds in pages** — paste YouTube links and they render as embedded videos
 - **File upload in page editor** — upload files while editing a page and auto-insert Markdown links/images at cursor position
 - **Folders** — group related tabs into collapsible folders (one level of nesting)
 - **Drag & drop** — reorder tabs and move them between folders
+- **Search & filter** — quickly find tabs by title/URL/page content, and filter by type
 - **Custom icons** — assign emoji icons to any tab
 - **Channel header sync** — optionally mirror tabs as Markdown links in the channel header so mobile clients can see them
 - **Fallback post** — when the header overflows, a bot post with the full navigation is auto-maintained and linked from the header
@@ -34,7 +36,8 @@ Add customizable tabs to Mattermost channels: external links, embedded Markdown 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | **Maximum Tabs Per Channel** | 30 | Limit of tabs allowed per channel (1–50). |
-| **Sync Tabs to Channel Header** | false | Mirror link tabs as Markdown in the channel header for mobile visibility. |
+| **Duplicate Tabs in Channel (Bot Posts)** | false | When enabled, the plugin creates/updates bot posts in the channel for Page tabs (and the navigation fallback post). |
+| **Header Display Mode** | none | Choose how channel tabs appear in the channel header (none/hint/full). Full requires bot posts. |
 
 ## Usage
 
