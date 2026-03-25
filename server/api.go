@@ -577,10 +577,11 @@ func permalinkForPost(teamName, postID string) string {
 	return "/pl/" + postID
 }
 
-func (p *Plugin) rhsPopoutLink(teamName, teamID string) string {
+func (p *Plugin) rhsPopoutLink(teamName, channelName string) string {
 	const pluginID = "channel-tabs"
 
-	path := "/_popout/rhs/" + url.PathEscape(teamName) + "/" + url.PathEscape(teamID) + "/plugin/" + pluginID
+	// Mattermost expects the channel name (slug) in this RHS popout route.
+	path := "/_popout/rhs/" + url.PathEscape(teamName) + "/" + url.PathEscape(channelName) + "/plugin/" + pluginID
 	cfg := p.API.GetConfig()
 	if cfg == nil || cfg.ServiceSettings.SiteURL == nil || *cfg.ServiceSettings.SiteURL == "" {
 		return path
@@ -939,7 +940,6 @@ func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab) {
 		return
 	}
 
-	teamID := channel.TeamId
 	var teamName string
 	if channel.TeamId != "" {
 		team, teamErr := p.API.GetTeam(channel.TeamId)
@@ -1010,7 +1010,7 @@ func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab) {
 	if botPostsEnabled && postID != "" {
 		hintLine = "[📑 " + label + "](" + permalinkForPost(teamName, postID) + ")"
 	} else {
-		hintLine = "[📑 " + label + "](" + p.rhsPopoutLink(teamName, teamID) + ")"
+		hintLine = "[📑 " + label + "](" + p.rhsPopoutLink(teamName, channel.Name) + ")"
 	}
 
 	header := upsertChannelTabsHint(existing, hintLine)
