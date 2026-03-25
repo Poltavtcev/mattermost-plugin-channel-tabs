@@ -119,6 +119,25 @@ const RHSPanel: React.FC = () => {
     const effectiveTeamName = teamName || teamNameFromPopout;
     const effectiveChannelName = channelInfo?.name || channelNameFromPopout;
 
+    const dmTeammateUsername = useSelector((state: GlobalState) => {
+        // In Mattermost, DM routes are /{team}/messages/@username (not /messages/{channelName}).
+        // In popout mode, Redux currentChannelId may point elsewhere (e.g., town-square), so we
+        // derive the teammate from the channel name in the URL (userId__userId).
+        if (!effectiveChannelName.includes('__')) {
+            return '';
+        }
+        const parts = effectiveChannelName.split('__').filter(Boolean);
+        if (parts.length !== 2) {
+            return '';
+        }
+        const [a, b] = parts;
+        const myId = (state as any).entities?.users?.currentUserId as string | undefined;
+        const otherId = myId && a === myId ? b : a;
+        const profile = otherId ? (state as any).entities?.users?.profiles?.[otherId] : undefined;
+        const username = typeof profile?.username === 'string' ? profile.username : '';
+        return username ? `@${username}` : '';
+    });
+
     const [deleteTarget, setDeleteTarget] = useState<Tab | null>(null);
     const [canManage, setCanManage] = useState(false);
     const [viewingPageId, setViewingPageId] = useState<string | null>(null);
@@ -217,16 +236,32 @@ const RHSPanel: React.FC = () => {
     }, [dispatch]);
 
     const handleBackToChannel = useCallback(() => {
-        if (!effectiveChannelName || !effectiveTeamName) {
+        if (!effectiveTeamName) {
             return;
         }
 
-        // In popout mode, the URL contains the channel name. For DMs/GM this usually includes "__".
-        // We prefer URL-derived name because Redux current channel can point to the last viewed channel (e.g., town-square).
-        const looksLikeDM = effectiveChannelName.includes('__');
-        const isDirectOrGroup = channelInfo?.type === 'D' || channelInfo?.type === 'G' || looksLikeDM;
         const base = `${window.location.origin}/${effectiveTeamName}`;
-        const url = isDirectOrGroup ? `${base}/messages/${effectiveChannelName}` : `${base}/channels/${effectiveChannelName}`;
+        const looksLikeDM = effectiveChannelName.includes('__');
+        const isDirect = channelInfo?.type === 'D' || looksLikeDM;
+        const isGroup = channelInfo?.type === 'G';
+
+        let url = '';
+        if (isDirect) {
+            if (!dmTeammateUsername) {
+                return;
+            }
+            url = `${base}/messages/${dmTeammateUsername}`;
+        } else if (isGroup) {
+            if (!effectiveChannelName) {
+                return;
+            }
+            url = `${base}/channels/${effectiveChannelName}`;
+        } else {
+            if (!effectiveChannelName) {
+                return;
+            }
+            url = `${base}/channels/${effectiveChannelName}`;
+        }
 
         // Best-effort: focus opener if present, but do NOT close this window.
         // Some environments null out window.opener and Mattermost may try to postMessage on close.
@@ -239,7 +274,7 @@ const RHSPanel: React.FC = () => {
         }
 
         window.location.href = url;
-    }, [channelInfo?.type, effectiveChannelName, effectiveTeamName]);
+    }, [channelInfo?.type, dmTeammateUsername, effectiveChannelName, effectiveTeamName]);
 
     const handleEditTab = useCallback((tab: Tab) => {
         dispatch(setEditingTab(tab));
@@ -658,7 +693,11 @@ const RHSPanel: React.FC = () => {
                             <button
                                 className='rhs-tabs-back-btn'
                                 onClick={handleBackToChannel}
-                                disabled={!effectiveChannelName || !effectiveTeamName}
+                                disabled={
+                                    !effectiveTeamName ||
+                                    (effectiveChannelName.includes('__') && !dmTeammateUsername) ||
+                                    (!effectiveChannelName.includes('__') && !effectiveChannelName)
+                                }
                             >
                                 {'←'} {((channelInfo?.type === 'D' || channelInfo?.type === 'G') || effectiveChannelName.includes('__')) ? t('rhs.backToConversation') : t('rhs.backToChannel')}
                             </button>
