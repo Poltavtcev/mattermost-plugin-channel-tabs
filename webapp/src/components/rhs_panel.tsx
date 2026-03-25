@@ -364,6 +364,35 @@ const RHSPanel: React.FC = () => {
         }
     }, [expandedFolderId, filteredRootTabs]);
 
+    // When searching, automatically expand the first folder that contains matches
+    // so the user can immediately see the highlighted document.
+    useEffect(() => {
+        const q = searchQuery.trim();
+        const isFiltering = typeFilter !== 'all' || Boolean(q);
+        if (!isFiltering) {
+            return;
+        }
+
+        const expandedChildren = expandedFolderId ? filteredChildrenByFolder[expandedFolderId] : undefined;
+        if (expandedFolderId && expandedChildren && expandedChildren.length > 0) {
+            return;
+        }
+
+        let folderToOpen: string | null = null;
+        for (const tab of filteredRootTabs) {
+            if (tab.type !== 'folder') {
+                continue;
+            }
+            const children = filteredChildrenByFolder[tab.id] || [];
+            if (children.length > 0) {
+                folderToOpen = tab.id;
+                break;
+            }
+        }
+
+        setExpandedFolderId(folderToOpen);
+    }, [searchQuery, typeFilter, filteredRootTabs, filteredChildrenByFolder, expandedFolderId]);
+
     const handleDropOnItem = useCallback(async (e: React.DragEvent, targetTab: Tab) => {
         e.preventDefault();
         e.stopPropagation();

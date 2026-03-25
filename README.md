@@ -18,7 +18,17 @@ Add customizable tabs to Mattermost channels: external links, embedded Markdown 
 
 ## Screenshots
 
-*(coming soon)*
+### RHS: Tabs overview (folders + icons)
+<img src="assets/screenshots/rhs-tabs.png" width="720" alt="RHS: tabs overview">
+
+### Search & filter
+<img src="assets/screenshots/rhs-search-filter.png" width="720" alt="Search and filter tabs">
+
+### Page viewer (YouTube embed)
+<img src="assets/screenshots/page-view-youtube.png" width="720" alt="Page viewer with YouTube embed">
+
+### Page editor (file upload + linked files)
+<img src="assets/screenshots/page-editor-upload.png" width="720" alt="Page editor with file upload">
 
 ## Requirements
 
