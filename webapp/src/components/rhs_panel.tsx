@@ -106,7 +106,18 @@ const RHSPanel: React.FC = () => {
         return parts[1] === 'rhs' && parts[2] ? parts[2] : '';
     }, [isPopout]);
 
+    const channelNameFromPopout = useMemo(() => {
+        if (!isPopout) {
+            return '';
+        }
+        const parts = window.location.pathname.split('/').filter(Boolean);
+
+        // /_popout/rhs/<team>/<channel>/plugin/<pluginId>
+        return parts[1] === 'rhs' && parts[3] ? parts[3] : '';
+    }, [isPopout]);
+
     const effectiveTeamName = teamName || teamNameFromPopout;
+    const effectiveChannelName = channelInfo?.name || channelNameFromPopout;
 
     const [deleteTarget, setDeleteTarget] = useState<Tab | null>(null);
     const [canManage, setCanManage] = useState(false);
@@ -206,13 +217,16 @@ const RHSPanel: React.FC = () => {
     }, [dispatch]);
 
     const handleBackToChannel = useCallback(() => {
-        if (!channelInfo?.name || !effectiveTeamName) {
+        if (!effectiveChannelName || !effectiveTeamName) {
             return;
         }
 
-        const isDirectOrGroup = channelInfo.type === 'D' || channelInfo.type === 'G';
+        // In popout mode, the URL contains the channel name. For DMs/GM this usually includes "__".
+        // We prefer URL-derived name because Redux current channel can point to the last viewed channel (e.g., town-square).
+        const looksLikeDM = effectiveChannelName.includes('__');
+        const isDirectOrGroup = channelInfo?.type === 'D' || channelInfo?.type === 'G' || looksLikeDM;
         const base = `${window.location.origin}/${effectiveTeamName}`;
-        const url = isDirectOrGroup ? `${base}/messages/${channelInfo.name}` : `${base}/channels/${channelInfo.name}`;
+        const url = isDirectOrGroup ? `${base}/messages/${effectiveChannelName}` : `${base}/channels/${effectiveChannelName}`;
 
         // Best-effort: focus opener if present, but do NOT close this window.
         // Some environments null out window.opener and Mattermost may try to postMessage on close.
@@ -225,7 +239,7 @@ const RHSPanel: React.FC = () => {
         }
 
         window.location.href = url;
-    }, [channelInfo, effectiveTeamName]);
+    }, [channelInfo?.type, effectiveChannelName, effectiveTeamName]);
 
     const handleEditTab = useCallback((tab: Tab) => {
         dispatch(setEditingTab(tab));
@@ -644,9 +658,9 @@ const RHSPanel: React.FC = () => {
                             <button
                                 className='rhs-tabs-back-btn'
                                 onClick={handleBackToChannel}
-                                disabled={!channelInfo?.name || !effectiveTeamName}
+                                disabled={!effectiveChannelName || !effectiveTeamName}
                             >
-                                {'←'} {(channelInfo?.type === 'D' || channelInfo?.type === 'G') ? t('rhs.backToConversation') : t('rhs.backToChannel')}
+                                {'←'} {((channelInfo?.type === 'D' || channelInfo?.type === 'G') || effectiveChannelName.includes('__')) ? t('rhs.backToConversation') : t('rhs.backToChannel')}
                             </button>
                         )}
                     </div>
