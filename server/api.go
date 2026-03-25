@@ -47,6 +47,11 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 		}
 	}()
 
+	if p.router == nil {
+		p.API.LogError("Channel Tabs plugin router is nil")
+		http.Error(w, "Plugin not initialized", http.StatusServiceUnavailable)
+		return
+	}
 	p.router.ServeHTTP(w, r)
 }
 
@@ -83,6 +88,9 @@ func (p *Plugin) withTabAdmin(next http.HandlerFunc) http.HandlerFunc {
 func kvKey(channelID string) string { return "channel_tabs_" + channelID }
 
 func (p *Plugin) getChannelTabsData(channelID string) (*ChannelTabs, []byte, error) {
+	if p.kvstore == nil {
+		return nil, nil, fmt.Errorf("kvstore is not initialized")
+	}
 	raw, err := p.kvstore.Get(kvKey(channelID))
 	if err != nil {
 		return nil, nil, err
@@ -98,6 +106,9 @@ func (p *Plugin) getChannelTabsData(channelID string) (*ChannelTabs, []byte, err
 }
 
 func (p *Plugin) saveChannelTabsData(tabs *ChannelTabs, oldRaw []byte) error {
+	if p.kvstore == nil {
+		return fmt.Errorf("kvstore is not initialized")
+	}
 	tabs.Version = time.Now().UnixMilli()
 	data, err := json.Marshal(tabs)
 	if err != nil {

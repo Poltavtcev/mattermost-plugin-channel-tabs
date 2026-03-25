@@ -1,7 +1,7 @@
 {
     "id": "channel-tabs",
     "name": "Channel Tabs",
-    "version": "1.3.2",
+    "version": "1.3.3",
     "description": "Add customizable tabs to Mattermost channels — external links, embedded markdown pages, and folders for documentation, rules, and knowledge base.",
     "homepage_url": "https://github.com/mattermost/mattermost-plugin-channel-tabs",
     "support_url": "https://github.com/mattermost/mattermost-plugin-channel-tabs/issues",
@@ -42,7 +42,7 @@
                 "display_name": "Header Display Mode",
                 "type": "radio",
                 "default": "none",
-                "help_text": "Choose how channel tabs appear in the channel header. If bot posts are disabled, the full list is forced to hint-only and the hint link goes to the RHS view.",
+                "help_text": "Choose how channel tabs appear in the channel header. Note: Full tabs list requires \"Duplicate Tabs in Channel (Bot Posts)\" to be enabled; otherwise it will behave like hint-only.",
                 "options": [
                     {
                         "display_name": "Do not display in header",
@@ -53,7 +53,7 @@
                         "value": "hint"
                     },
                     {
-                        "display_name": "Show full tabs list in header",
+                        "display_name": "Show full tabs list in header (requires bot posts)",
                         "value": "full"
                     }
                 ]

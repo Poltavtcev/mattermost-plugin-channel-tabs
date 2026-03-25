@@ -316,9 +316,33 @@
 .rhs-tabs-header {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: space-between;
     padding: 12px 16px;
     border-bottom: 1px solid rgba(var(--center-channel-color-rgb, 63, 67, 80), 0.08);
+}
+
+.rhs-tabs-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid rgba(var(--center-channel-color-rgb, 63, 67, 80), 0.16);
+    border-radius: 4px;
+    background: transparent;
+    color: rgba(var(--center-channel-color-rgb, 63, 67, 80), 0.88);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s ease;
+
+    &:hover {
+        background: rgba(var(--center-channel-color-rgb, 63, 67, 80), 0.06);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
 }
 
 .rhs-tabs-add-btn {

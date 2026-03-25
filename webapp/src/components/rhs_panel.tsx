@@ -81,6 +81,20 @@ const RHSPanel: React.FC = () => {
     const editingTab = useSelector(getEditingTab);
     const config = useSelector(getPluginConfig);
 
+    const isPopout = useMemo(() => window.location.pathname.startsWith('/_popout/'), []);
+
+    const channelInfo = useSelector((state: GlobalState) => {
+        const entities = (state as unknown as {entities: {channels: {channels: Record<string, {name: string; team_id: string}>}}}).entities;
+        const ch = entities.channels.channels?.[channelId];
+        return ch ? {name: ch.name, teamId: ch.team_id} : null;
+    });
+
+    const teamName = useSelector((state: GlobalState) => {
+        const entities = (state as unknown as {entities: {teams: {teams: Record<string, {name: string}>}}}).entities;
+        const id = channelInfo?.teamId;
+        return id ? entities.teams.teams?.[id]?.name || '' : '';
+    });
+
     const [deleteTarget, setDeleteTarget] = useState<Tab | null>(null);
     const [canManage, setCanManage] = useState(false);
     const [viewingPageId, setViewingPageId] = useState<string | null>(null);
@@ -172,6 +186,24 @@ const RHSPanel: React.FC = () => {
         dispatch(setEditingTab(null));
         dispatch(openTabModal());
     }, [dispatch]);
+
+    const handleBackToChannel = useCallback(() => {
+        if (!channelInfo?.name || !teamName) {
+            return;
+        }
+        const url = `${window.location.origin}/${teamName}/channels/${channelInfo.name}`;
+        try {
+            if (window.opener && !window.opener.closed) {
+                window.opener.location.href = url;
+                window.opener.focus();
+                window.close();
+                return;
+            }
+        } catch {
+            // fall through
+        }
+        window.location.href = url;
+    }, [channelInfo, teamName]);
 
     const handleEditTab = useCallback((tab: Tab) => {
         dispatch(setEditingTab(tab));
@@ -485,11 +517,23 @@ const RHSPanel: React.FC = () => {
 
     return (
         <div className='rhs-tabs-panel'>
-            {canManage && (
+            {(canManage || isPopout) && (
                 <div className='rhs-tabs-header'>
+                    <div>
+                        {isPopout && (
+                            <button
+                                className='rhs-tabs-back-btn'
+                                onClick={handleBackToChannel}
+                                disabled={!channelInfo?.name || !teamName}
+                            >
+                                {'←'} {t('rhs.backToChannel')}
+                            </button>
+                        )}
+                    </div>
                     <button
                         className='rhs-tabs-add-btn'
                         onClick={() => handleAddTab()}
+                        style={{display: canManage ? 'flex' : 'none'}}
                     >
                         {t('rhs.addTab')}
                     </button>

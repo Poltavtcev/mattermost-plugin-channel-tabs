@@ -16,6 +16,7 @@ const messages: Record<string, Record<string, string>> = {
         'rhs.delete': 'Delete',
         'rhs.emptyFolder': 'Empty folder',
         'rhs.addItem': '+ Add',
+        'rhs.backToChannel': 'Back to channel',
 
         // Tab Modal
         'modal.editTab': 'Edit Tab',
@@ -105,6 +106,7 @@ const messages: Record<string, Record<string, string>> = {
         'rhs.delete': 'Видалити',
         'rhs.emptyFolder': 'Порожня папка',
         'rhs.addItem': '+ Додати',
+        'rhs.backToChannel': 'Повернутися в канал',
 
         // Tab Modal
         'modal.editTab': 'Редагувати вкладку',
