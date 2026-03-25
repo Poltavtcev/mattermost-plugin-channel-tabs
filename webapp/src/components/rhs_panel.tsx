@@ -103,7 +103,7 @@ const RHSPanel: React.FC = () => {
         const parts = window.location.pathname.split('/').filter(Boolean);
 
         // /_popout/rhs/<team>/<channel>/plugin/<pluginId>
-        return parts[2] === 'rhs' && parts[3] ? parts[3] : '';
+        return parts[1] === 'rhs' && parts[2] ? parts[2] : '';
     }, [isPopout]);
 
     const effectiveTeamName = teamName || teamNameFromPopout;
