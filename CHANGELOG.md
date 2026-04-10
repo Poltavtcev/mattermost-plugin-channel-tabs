@@ -15,10 +15,12 @@ This file is the **source of truth in-repo** for what each version contains. Git
 ### Fixes
 
 - **Page Markdown line breaks:** micromark keeps newline characters inside paragraph text, but the browser collapses them to spaces by default. The page preview now uses `white-space: pre-line` on prose blocks (and normalizes CRLF before sanitize) so line breaks in the editor match the rendered page.
+- **Channel header sync:** normalize **Header display mode** values (trim + case) so `hint` / `full` are not misread as `none`; background header refresh uses the plugin bot user and extra team fallbacks when resolving the RHS popout team slug (fixes missing or broken header hints after config changes).
+- **RHS popout (hint / new tab):** resolve the correct channel when `/_popout/rhs/<team>/<channelId>/plugin/channel-tabs` opens in a separate window (Redux `currentChannelId` is often wrong there); header hint links now use **channel id** in the path to match Mattermost’s popout routes.
 
 ### Improvements
 
-- **Page editor — file chips:** each attached file name is a **clickable** control that inserts the Markdown link (or `![…]()` for images) at the cursor; **×** removes that file’s reference from the text. The list shows only files still referenced in the current Markdown.
+- **Page editor — file chips:** files uploaded or previously linked are tracked in **`page_file_ids`** on the server. Removing a file link from the page text **does not** hide the chip until the user clicks **×** and **saves**. **×** queues removal for the next save (`dismiss_file_ids`). Chip labels keep the **last known** display name (markdown, upload, or API). First-session uploads before save use `extra_tracked_file_ids` so orphans are not lost.
 
 ---
 

@@ -10,6 +10,7 @@ export interface Tab {
     parent_id: string;
     content?: string;
     format?: string;
+    page_file_ids?: string[];
     sort_order: number;
     is_active: boolean;
     permissions?: string[];
@@ -44,6 +45,8 @@ export interface UpdateTabRequest {
 
 export interface UpdatePageContentRequest {
     content: string;
+    dismiss_file_ids?: string[];
+    extra_tracked_file_ids?: string[];
 }
 
 export interface MoveTabRequest {

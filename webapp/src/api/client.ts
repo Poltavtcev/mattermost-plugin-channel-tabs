@@ -37,11 +37,39 @@ export async function updateTab(channelId: string, tabId: string, updates: Updat
     return ok<ChannelTabs>(r);
 }
 
-export async function updatePageContent(channelId: string, tabId: string, content: string): Promise<void> {
-    const r = await fetch(`${base()}/tabs/${encodeURIComponent(tabId)}/content?channel_id=${encodeURIComponent(channelId)}`, {method: 'PUT', headers: headers(), body: JSON.stringify({content})});
+export async function updatePageContent(
+    channelId: string,
+    tabId: string,
+    content: string,
+    opts?: {dismissFileIds?: string[]; extraTrackedFileIds?: string[]},
+): Promise<void> {
+    const body: Record<string, unknown> = {content};
+    if (opts?.dismissFileIds?.length) {
+        body.dismiss_file_ids = opts.dismissFileIds;
+    }
+    if (opts?.extraTrackedFileIds?.length) {
+        body.extra_tracked_file_ids = opts.extraTrackedFileIds;
+    }
+    const r = await fetch(`${base()}/tabs/${encodeURIComponent(tabId)}/content?channel_id=${encodeURIComponent(channelId)}`, {method: 'PUT', headers: headers(), body: JSON.stringify(body)});
     if (!r.ok) {
         throw new Error(await r.text() || `Failed: ${r.status}`);
     }
+}
+
+type FileInfoResponse = {
+    id: string;
+    name: string;
+};
+
+export async function fetchFileInfo(fileId: string): Promise<FileInfoResponse> {
+    const r = await fetch(`/api/v4/files/${encodeURIComponent(fileId)}/info`, {
+        method: 'GET',
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
+    });
+    if (!r.ok) {
+        throw new Error(await r.text() || `Failed: ${r.status}`);
+    }
+    return r.json() as Promise<FileInfoResponse>;
 }
 
 export async function moveTab(channelId: string, tabId: string, parentId: string): Promise<ChannelTabs> {

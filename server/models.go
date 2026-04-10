@@ -26,6 +26,7 @@ type Tab struct {
 	ParentID    string   `json:"parent_id"`
 	Content     string   `json:"content,omitempty"`
 	Format      string   `json:"format,omitempty"`
+	PageFileIDs []string `json:"page_file_ids,omitempty"`
 	SortOrder   int      `json:"sort_order"`
 	IsActive    bool     `json:"is_active"`
 	Permissions []string `json:"permissions,omitempty"`
@@ -59,7 +60,9 @@ type UpdateTabRequest struct {
 }
 
 type UpdatePageContentRequest struct {
-	Content string `json:"content"`
+	Content             string   `json:"content"`
+	DismissFileIDs      []string `json:"dismiss_file_ids,omitempty"`
+	ExtraTrackedFileIDs []string `json:"extra_tracked_file_ids,omitempty"`
 }
 
 type MoveTabRequest struct {

@@ -25,7 +25,7 @@ import {
     isModalOpen,
     getEditingTab,
     getPluginConfig,
-    getCurrentChannelId,
+    getRhsPanelChannelId,
 } from '../selectors';
 import type {Tab, CreateTabRequest, UpdateTabRequest} from '../types/tabs';
 
@@ -76,7 +76,7 @@ function getDropZone(e: React.DragEvent, isFolder: boolean): DropZone {
 const RHSPanel: React.FC = () => {
     const dispatch = useDispatch();
     const t = useTranslations();
-    const channelId = useSelector(getCurrentChannelId);
+    const channelId = useSelector(getRhsPanelChannelId);
     const tabs = useSelector((state: GlobalState) => getTabsForChannel(state, channelId));
     const modalVisible = useSelector(isModalOpen);
     const editingTab = useSelector(getEditingTab);
@@ -112,11 +112,13 @@ const RHSPanel: React.FC = () => {
         }
         const parts = window.location.pathname.split('/').filter(Boolean);
 
-        // /_popout/rhs/<team>/<channel>/plugin/<pluginId>
+        // /_popout/rhs/<team>/<channelId-or-name>/plugin/<pluginId>
         return parts[1] === 'rhs' && parts[3] ? parts[3] : '';
     }, [isPopout]);
 
     const effectiveTeamName = teamName || teamNameFromPopout;
+
+    /** Popout segment is usually channel id; fall back to it for back-link until channelInfo loads. */
     const effectiveChannelName = channelInfo?.name || channelNameFromPopout;
 
     const dmTeammateUsername = useSelector((state: GlobalState) => {

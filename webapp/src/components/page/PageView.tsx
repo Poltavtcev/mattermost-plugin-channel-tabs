@@ -21,10 +21,16 @@ const PageView: React.FC<PageViewProps> = ({tab, channelId, canEdit, onBack, onC
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
 
-    const handleSave = useCallback(async (content: string) => {
+    const handleSave = useCallback(async (
+        content: string,
+        opts?: {dismissFileIds?: string[]; extraTrackedFileIds?: string[]},
+    ) => {
         setSaving(true);
         try {
-            await api.updatePageContent(channelId, tab.id, content);
+            await api.updatePageContent(channelId, tab.id, content, {
+                dismissFileIds: opts?.dismissFileIds,
+                extraTrackedFileIds: opts?.extraTrackedFileIds,
+            });
             setEditing(false);
             onContentSaved();
         } catch (err) {
@@ -45,8 +51,10 @@ const PageView: React.FC<PageViewProps> = ({tab, channelId, canEdit, onBack, onC
                     onBack={() => setEditing(false)}
                 />
                 <PageEditor
+                    key={`${tab.id}-${tab.updated_at}`}
                     channelId={channelId}
                     initialContent={tab.content || ''}
+                    pageFileIds={tab.page_file_ids}
                     onSave={handleSave}
                     onCancel={() => setEditing(false)}
                     saving={saving}

@@ -8,7 +8,8 @@ import {useTranslations} from '../../hooks/useTranslations';
 interface PageEditorProps {
     channelId: string;
     initialContent: string;
-    onSave: (content: string) => void;
+    pageFileIds?: string[];
+    onSave: (content: string, opts?: {dismissFileIds?: string[]; extraTrackedFileIds?: string[]}) => void;
     onCancel: () => void;
     saving: boolean;
 }
@@ -27,16 +28,78 @@ type LinkedFile = {
 /** Image extensions for choosing ![alt](url) vs [label](url) when inserting from the chip list. */
 const IMAGE_NAME_RE = /\.(png|jpe?g|gif|webp|svg)$/i;
 
-const PageEditor: React.FC<PageEditorProps> = ({channelId, initialContent, onSave, onCancel, saving}) => {
+const PageEditor: React.FC<PageEditorProps> = ({
+    channelId,
+    initialContent,
+    pageFileIds = [],
+    onSave,
+    onCancel,
+    saving,
+}) => {
     const t = useTranslations();
     const [content, setContent] = useState(initialContent);
     const [showPreview, setShowPreview] = useState(false);
     const [error, setError] = useState('');
     const [uploading, setUploading] = useState(false);
+
+    /** Uploads in this session not yet persisted in page_file_ids (first save merges them). */
+    const [sessionExtraFileIds, setSessionExtraFileIds] = useState<string[]>([]);
+
+    /** File ids marked for removal on save (chips stay visible until save). */
+    const [pendingDismissFileIds, setPendingDismissFileIds] = useState<string[]>([]);
+
+    /** Last label we showed for each file id (markdown, upload, API, or before link was removed). */
+    const [lastKnownNames, setLastKnownNames] = useState<Record<string, string>>({});
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const fetchedNameIdsRef = useRef<Set<string>>(new Set());
+    const prevLinkedByIdRef = useRef<Map<string, LinkedFile>>(new Map());
 
     const linkedFiles = useMemo(() => extractLinkedFiles(content), [content]);
+
+    /** Only changes when file links in markdown change (not on every keystroke). */
+    const linkedFilesSignature = useMemo(
+        () =>
+            extractLinkedFiles(content).map((f) => `${f.id}\u0001${f.name}`).sort().join('\u0002'),
+        [content],
+    );
+
+    const linkedById = useMemo(() => {
+        const m = new Map<string, LinkedFile>();
+        for (const f of linkedFiles) {
+            m.set(f.id, f);
+        }
+        return m;
+    }, [linkedFiles]);
+
+    const displayFileIds = useMemo(() => {
+        return uniqueStrings([
+            ...pageFileIds,
+            ...linkedFiles.map((f) => f.id),
+            ...sessionExtraFileIds,
+            ...pendingDismissFileIds,
+        ]);
+    }, [pageFileIds, linkedFiles, sessionExtraFileIds, pendingDismissFileIds]);
+
+    useEffect(() => {
+        const linked = extractLinkedFiles(content);
+        const current = new Map(linked.map((f) => [f.id, f]));
+        setLastKnownNames((prev) => {
+            const next = {...prev};
+            for (const [id, f] of prevLinkedByIdRef.current.entries()) {
+                if (!current.has(id) && f.name) {
+                    next[id] = f.name;
+                }
+            }
+            for (const [id, f] of current) {
+                if (f.name) {
+                    next[id] = f.name;
+                }
+            }
+            return next;
+        });
+        prevLinkedByIdRef.current = current;
+    }, [linkedFilesSignature]);
 
     useEffect(() => {
         if (textareaRef.current && !showPreview) {
@@ -44,14 +107,56 @@ const PageEditor: React.FC<PageEditorProps> = ({channelId, initialContent, onSav
         }
     }, [showPreview]);
 
+    useEffect(() => {
+        let cancelled = false;
+        const idsNeedingFetch = displayFileIds.filter(
+            (id) => !linkedById.has(id) && !lastKnownNames[id] && !fetchedNameIdsRef.current.has(id),
+        );
+        for (const id of idsNeedingFetch) {
+            fetchedNameIdsRef.current.add(id);
+        }
+
+        const run = async () => {
+            await Promise.all(
+                idsNeedingFetch.map(async (id) => {
+                    try {
+                        const info = await api.fetchFileInfo(id);
+                        if (!cancelled) {
+                            setLastKnownNames((prev) => ({...prev, [id]: info.name}));
+                        }
+                    } catch {
+                        // Keep lastKnownNames[id] from markdown/upload if API fails.
+                    }
+                }),
+            );
+        };
+        run().catch(() => {});
+
+        return () => {
+            cancelled = true;
+        };
+    }, [displayFileIds, linkedById, lastKnownNames]);
+
+    const displayFiles: LinkedFile[] = useMemo(() => {
+        return displayFileIds.map((id) => ({
+            id,
+            name: linkedById.get(id)?.name || lastKnownNames[id] || id,
+        }));
+    }, [displayFileIds, linkedById, lastKnownNames]);
+
     const handleSave = useCallback(() => {
         if (content.length > MAX_CONTENT_SIZE) {
             setError(t('editor.contentTooLarge', {size: (content.length / 1024).toFixed(1)}));
             return;
         }
         setError('');
-        onSave(content);
-    }, [content, onSave, t]);
+        const dismiss = new Set(pendingDismissFileIds);
+        const extraTrackedFileIds = sessionExtraFileIds.filter((id) => !dismiss.has(id));
+        onSave(content, {
+            dismissFileIds: pendingDismissFileIds.length ? pendingDismissFileIds : undefined,
+            extraTrackedFileIds: extraTrackedFileIds.length ? extraTrackedFileIds : undefined,
+        });
+    }, [content, onSave, pendingDismissFileIds, sessionExtraFileIds, t]);
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 's' && (e.metaKey || e.ctrlKey)) {
@@ -116,6 +221,8 @@ const PageEditor: React.FC<PageEditorProps> = ({channelId, initialContent, onSav
 
         try {
             const uploaded = await api.uploadFile(channelId, file);
+            setSessionExtraFileIds((prev) => (prev.includes(uploaded.id) ? prev : [...prev, uploaded.id]));
+            setLastKnownNames((prev) => ({...prev, [uploaded.id]: uploaded.name}));
             const isImage = uploaded.mime_type?.startsWith('image/');
             const fileURL = `${window.location.origin}/api/v4/files/${uploaded.id}`;
             const markdown = isImage ?
@@ -130,8 +237,11 @@ const PageEditor: React.FC<PageEditorProps> = ({channelId, initialContent, onSav
         }
     }, [channelId, insertTextAtCursor, t]);
 
-    const handleRemoveLinkedFile = useCallback((fileID: string) => {
-        setContent((prev) => removeFileFromMarkdown(prev, fileID));
+    const handleRemoveLinkedFile = useCallback((file: LinkedFile) => {
+        setLastKnownNames((prev) => ({...prev, [file.id]: file.name}));
+        setPendingDismissFileIds((prev) => (prev.includes(file.id) ? prev : [...prev, file.id]));
+        setSessionExtraFileIds((prev) => prev.filter((id) => id !== file.id));
+        setContent((prev) => removeFileFromMarkdown(prev, file.id));
     }, []);
 
     const handleInsertFileLink = useCallback((file: LinkedFile) => {
@@ -216,11 +326,11 @@ const PageEditor: React.FC<PageEditorProps> = ({channelId, initialContent, onSav
                     style={{display: 'none'}}
                     onChange={handleFileSelected}
                 />
-                {!showPreview && linkedFiles.length > 0 && (
+                {!showPreview && displayFiles.length > 0 && (
                     <div className='page-editor__files'>
                         <div className='page-editor__files-title'>{t('editor.filesAttached')}</div>
                         <div className='page-editor__files-chips'>
-                            {linkedFiles.map((file) => (
+                            {displayFiles.map((file) => (
                                 <div
                                     key={file.id}
                                     className='page-editor__file-chip'
@@ -235,7 +345,7 @@ const PageEditor: React.FC<PageEditorProps> = ({channelId, initialContent, onSav
                                     </button>
                                     <button
                                         className='page-editor__file-chip-remove'
-                                        onClick={() => handleRemoveLinkedFile(file.id)}
+                                        onClick={() => handleRemoveLinkedFile(file)}
                                         title={t('editor.removeFile')}
                                         type='button'
                                         aria-label={t('editor.removeFile')}
@@ -297,6 +407,19 @@ function getPrimaryButtonLabel(uploading: boolean, t: (key: string) => string): 
         return t('editor.uploading');
     }
     return t('editor.save');
+}
+
+function uniqueStrings(ids: string[]): string[] {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const id of ids) {
+        if (!id || seen.has(id)) {
+            continue;
+        }
+        seen.add(id);
+        out.push(id);
+    }
+    return out;
 }
 
 function extractLinkedFiles(markdown: string): LinkedFile[] {

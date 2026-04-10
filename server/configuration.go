@@ -2,6 +2,7 @@ package main
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -29,7 +30,11 @@ func (c *configuration) GetMaxTabs() int {
 }
 
 func (c *configuration) GetHeaderDisplayMode() string {
-	if c.HeaderDisplayMode == "" {
+	mode := strings.TrimSpace(c.HeaderDisplayMode)
+	if mode != "" {
+		mode = strings.ToLower(mode)
+	}
+	if mode == "" {
 		// Backward compatibility for older configs (when the new HeaderDisplayMode setting didn't exist).
 		if c.SyncTabsToHeader {
 			return "full"
@@ -37,9 +42,9 @@ func (c *configuration) GetHeaderDisplayMode() string {
 		return "none"
 	}
 
-	switch c.HeaderDisplayMode {
+	switch mode {
 	case "none", "hint", "full":
-		return c.HeaderDisplayMode
+		return mode
 	default:
 		return "none"
 	}

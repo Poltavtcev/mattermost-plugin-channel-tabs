@@ -124,6 +124,104 @@ func (p *Plugin) saveChannelTabsData(tabs *ChannelTabs, oldRaw []byte) error {
 	return nil
 }
 
+var mattermostFilePathRe = regexp.MustCompile(`/api/v4/files/([a-zA-Z0-9]+)`)
+
+func fileIDsInMarkdown(markdown string) []string {
+	seen := make(map[string]struct{})
+	var out []string
+	for _, m := range mattermostFilePathRe.FindAllStringSubmatch(markdown, -1) {
+		if len(m) < 2 {
+			continue
+		}
+		id := m[1]
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
+}
+
+func mergePageFileIDs(tab *Tab, content string, extra []string) {
+	seen := make(map[string]struct{})
+	var order []string
+	add := func(id string) {
+		if id == "" {
+			return
+		}
+		if _, ok := seen[id]; ok {
+			return
+		}
+		seen[id] = struct{}{}
+		order = append(order, id)
+	}
+	for _, id := range tab.PageFileIDs {
+		add(id)
+	}
+	for _, id := range fileIDsInMarkdown(content) {
+		add(id)
+	}
+	for _, id := range extra {
+		add(id)
+	}
+	tab.PageFileIDs = order
+}
+
+func removeDismissedPageFileIDs(ids []string, dismiss []string) []string {
+	if len(dismiss) == 0 {
+		return ids
+	}
+	rm := make(map[string]struct{}, len(dismiss))
+	for _, id := range dismiss {
+		rm[id] = struct{}{}
+	}
+	out := ids[:0]
+	for _, id := range ids {
+		if _, ok := rm[id]; !ok {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+func (p *Plugin) maybeBackfillPageFileIDs(tabs *ChannelTabs, oldRaw []byte) error {
+	type patch struct {
+		idx  int
+		prev []string
+		next []string
+	}
+	var patches []patch
+	for i := range tabs.Tabs {
+		t := &tabs.Tabs[i]
+		if t.Type != TabTypePage || t.Content == "" || len(t.PageFileIDs) > 0 {
+			continue
+		}
+		if !strings.Contains(t.Content, "/api/v4/files/") {
+			continue
+		}
+		ids := fileIDsInMarkdown(t.Content)
+		if len(ids) == 0 {
+			continue
+		}
+		prev := append([]string(nil), t.PageFileIDs...)
+		patches = append(patches, patch{idx: i, prev: prev, next: ids})
+	}
+	if len(patches) == 0 {
+		return nil
+	}
+	for _, p := range patches {
+		tabs.Tabs[p.idx].PageFileIDs = p.next
+	}
+	if err := p.saveChannelTabsData(tabs, oldRaw); err != nil {
+		for _, p := range patches {
+			tabs.Tabs[p.idx].PageFileIDs = p.prev
+		}
+		return err
+	}
+	return nil
+}
+
 // --- handlers ---
 
 func (p *Plugin) handleGetTabs(w http.ResponseWriter, r *http.Request) {
@@ -138,11 +236,15 @@ func (p *Plugin) handleGetTabs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tabs, _, err := p.getChannelTabsData(channelID)
+	tabs, oldRaw, err := p.getChannelTabsData(channelID)
 	if err != nil {
 		p.API.LogError("Failed to get tabs", "error", err.Error())
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
+	}
+
+	if err := p.maybeBackfillPageFileIDs(tabs, oldRaw); err != nil {
+		p.API.LogError("maybeBackfillPageFileIDs", "error", err.Error())
 	}
 
 	result := tabs.Tabs
@@ -219,6 +321,7 @@ func (p *Plugin) handleCreateTab(w http.ResponseWriter, r *http.Request) {
 	case TabTypePage:
 		newTab.Content = req.Content
 		newTab.Format = "markdown"
+		mergePageFileIDs(&newTab, newTab.Content, nil)
 
 		cfg := p.getConfiguration()
 		if cfg.IsBotPostsEnabled() {
@@ -342,6 +445,8 @@ func (p *Plugin) handleUpdatePageContent(w http.ResponseWriter, r *http.Request)
 	tab.Content = req.Content
 	tab.Format = "markdown"
 	tab.UpdatedAt = time.Now().UnixMilli()
+	mergePageFileIDs(tab, req.Content, req.ExtraTrackedFileIDs)
+	tab.PageFileIDs = removeDismissedPageFileIDs(tab.PageFileIDs, req.DismissFileIDs)
 
 	cfg := p.getConfiguration()
 	if cfg.IsBotPostsEnabled() && tab.PostID != "" {
@@ -582,11 +687,11 @@ func permalinkForPost(teamName, postID string) string {
 	return "/pl/" + postID
 }
 
-func (p *Plugin) rhsPopoutLink(teamName, channelName string) string {
+func (p *Plugin) rhsPopoutLink(teamName, channelID string) string {
 	const pluginID = "channel-tabs"
 
-	// Mattermost expects the channel name (slug) in this RHS popout route.
-	path := "/_popout/rhs/" + url.PathEscape(teamName) + "/" + url.PathEscape(channelName) + "/plugin/" + pluginID
+	// Mattermost RHS popout uses the channel id in this path segment (stable; matches webapp routes).
+	path := "/_popout/rhs/" + url.PathEscape(teamName) + "/" + url.PathEscape(channelID) + "/plugin/" + pluginID
 	cfg := p.API.GetConfig()
 	if cfg == nil || cfg.ServiceSettings.SiteURL == nil || *cfg.ServiceSettings.SiteURL == "" {
 		return path
@@ -979,6 +1084,12 @@ func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab, actorUser
 				teamName = match[1]
 			}
 		}
+		if teamName == "" && p.botUserID != "" {
+			teams, tErr := p.API.GetTeamsForUser(p.botUserID)
+			if tErr == nil && len(teams) > 0 {
+				teamName = teams[0].Name
+			}
+		}
 	}
 
 	postID := ""
@@ -1040,7 +1151,7 @@ func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab, actorUser
 	if botPostsEnabled && postID != "" {
 		hintLine = "[" + label + "](" + permalinkForPost(teamName, postID) + ")"
 	} else {
-		hintLine = "[" + label + "](" + p.rhsPopoutLink(teamName, channel.Name) + ")"
+		hintLine = "[" + label + "](" + p.rhsPopoutLink(teamName, channel.Id) + ")"
 	}
 
 	header := upsertChannelTabsHint(existing, hintLine)
@@ -1067,7 +1178,7 @@ func (p *Plugin) syncManagedChannelHeaders() {
 		if err != nil || tabs == nil {
 			continue
 		}
-		p.syncTabsToChannelHeader(channelID, tabs.Tabs, "")
+		p.syncTabsToChannelHeader(channelID, tabs.Tabs, p.botUserID)
 	}
 }
 
