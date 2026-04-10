@@ -857,6 +857,22 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 200px;
+
+    &.page-editor__file-chip-name--action {
+        max-width: 200px;
+        margin: 0;
+        padding: 0 2px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        text-align: left;
+        font: inherit;
+        color: var(--link-color, #1c58d9);
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
 }
 
 .page-editor__file-chip-remove {
@@ -936,6 +952,15 @@
     font-size: 14px;
     line-height: 1.7;
     word-wrap: break-word;
+
+    /* Micromark keeps \\n inside paragraph text; default CSS collapses them — pre-line shows real line breaks. */
+    p,
+    li,
+    td,
+    th,
+    h1, h2, h3, h4, h5, h6 {
+        white-space: pre-line;
+    }
 
     h1, h2, h3, h4, h5, h6 {
         margin-top: 1.2em;

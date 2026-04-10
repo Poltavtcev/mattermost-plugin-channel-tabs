@@ -10,6 +10,7 @@ type configuration struct {
 	MaxTabsPerChannel int    `json:"MaxTabsPerChannel"`
 	SyncTabsToHeader  bool   `json:"SyncTabsToHeader"`
 	HeaderDisplayMode string `json:"HeaderDisplayMode"`
+	HeaderHintLabel   string `json:"HeaderHintLabel"`
 }
 
 func (c *configuration) Clone() *configuration {
@@ -53,6 +54,16 @@ func (c *configuration) IsHeaderOutputEnabled() bool {
 	return c.GetHeaderDisplayMode() != "none"
 }
 
+func (c *configuration) GetHeaderHintLabel(locale string) string {
+	if c.HeaderHintLabel != "" {
+		return c.HeaderHintLabel
+	}
+	if len(locale) >= 2 && locale[:2] == "uk" {
+		return "📑 Вкладки каналу"
+	}
+	return "📑 Channel Tabs"
+}
+
 func (p *Plugin) getConfiguration() *configuration {
 	p.configurationLock.RLock()
 	defer p.configurationLock.RUnlock()
@@ -94,9 +105,11 @@ func (p *Plugin) OnConfigurationChange() error {
 	newMode := configuration.GetHeaderDisplayMode()
 	prevBot := prev.IsBotPostsEnabled()
 	newBot := configuration.IsBotPostsEnabled()
+	prevHintLabel := prev.HeaderHintLabel
+	newHintLabel := configuration.HeaderHintLabel
 
 	// Any switch between modes/bot-posts affects header content. Best-effort cleanup first.
-	if prevMode != newMode || prevBot != newBot {
+	if prevMode != newMode || prevBot != newBot || prevHintLabel != newHintLabel {
 		p.cleanupManagedHeaders()
 	}
 

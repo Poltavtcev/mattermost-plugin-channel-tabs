@@ -622,7 +622,6 @@ const maxHeaderLen = 1024
 
 var (
 	relativeFileLinkRe = regexp.MustCompile(`\((/api/v4/files/[a-zA-Z0-9]+)\)`)
-	headerHintLinkRe   = regexp.MustCompile(`^\[📑 [^\]]+\]\([^)]+\)$`)
 	popoutTeamRe       = regexp.MustCompile(`/_popout/rhs/([^/]+)/`)
 )
 
@@ -645,30 +644,42 @@ func isChannelTabsHintLine(line string) bool {
 	if trimmed == "" {
 		return false
 	}
-	if headerHintLinkRe.MatchString(trimmed) {
-		return strings.Contains(trimmed, "Channel Tabs") || strings.Contains(trimmed, "Вкладки каналу")
+	// Robust detection for all plugin-managed hint labels, including custom text.
+	isMarkdownLink := strings.HasPrefix(trimmed, "[") && strings.Contains(trimmed, "](") && strings.HasSuffix(trimmed, ")")
+	if isMarkdownLink &&
+		strings.Contains(trimmed, "/_popout/rhs/") &&
+		strings.Contains(trimmed, "/plugin/channel-tabs") {
+		return true
 	}
-	if strings.HasPrefix(trimmed, "📑 ") {
-		return strings.Contains(trimmed, "Channel Tabs") || strings.Contains(trimmed, "Вкладки каналу")
-	}
-	return false
+
+	// Backward compatibility with older labels.
+	return strings.Contains(trimmed, "Channel Tabs") || strings.Contains(trimmed, "Вкладки каналу")
 }
 
 func upsertChannelTabsHint(existingHeader, hintLine string) string {
 	lines := strings.Split(existingHeader, "\n")
 	found := false
+	out := make([]string, 0, len(lines))
 	for i, line := range lines {
 		if !isChannelTabsHintLine(line) {
+			_ = i
+			out = append(out, line)
 			continue
 		}
-		lines[i] = hintLine
-		found = true
-		break
+		// Keep exactly one up-to-date hint line even if old duplicates exist.
+		if !found {
+			out = append(out, hintLine)
+			found = true
+		}
+	}
+
+	result := strings.TrimRight(existingHeader, "\n")
+	if strings.TrimSpace(strings.Join(out, "\n")) == "" && !found {
+		return hintLine
 	}
 	if found {
-		return strings.Join(lines, "\n")
+		return strings.Join(out, "\n")
 	}
-	result := strings.TrimRight(existingHeader, "\n")
 	if strings.TrimSpace(result) == "" {
 		return hintLine
 	}
@@ -977,10 +988,7 @@ func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab, actorUser
 	}
 
 	locale := p.getServerLocale()
-	label := "Channel Tabs"
-	if strings.HasPrefix(locale, "uk") {
-		label = "Вкладки каналу"
-	}
+	label := cfg.GetHeaderHintLabel(locale)
 
 	// Full header mode: only possible when bot posts are enabled.
 	if effectiveMode == "full" {
@@ -1030,9 +1038,9 @@ func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab, actorUser
 
 	var hintLine string
 	if botPostsEnabled && postID != "" {
-		hintLine = "[📑 " + label + "](" + permalinkForPost(teamName, postID) + ")"
+		hintLine = "[" + label + "](" + permalinkForPost(teamName, postID) + ")"
 	} else {
-		hintLine = "[📑 " + label + "](" + p.rhsPopoutLink(teamName, channel.Name) + ")"
+		hintLine = "[" + label + "](" + p.rhsPopoutLink(teamName, channel.Name) + ")"
 	}
 
 	header := upsertChannelTabsHint(existing, hintLine)

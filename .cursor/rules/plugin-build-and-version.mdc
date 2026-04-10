@@ -1,0 +1,24 @@
+---
+description: After code changes, build the plugin bundle; bump version only when the user asks
+alwaysApply: true
+---
+
+# Mattermost plugin — збірка та версія
+
+## Збірка
+
+Після змін у коді плагіна (server, webapp, `plugin.json`, assets тощо), **наприкінці сесії змін** запускай з кореня репозиторію:
+
+```bash
+make dist
+```
+
+Це дає готовий архів у `dist/channel-tabs-<version>.tar.gz` для завантаження в Mattermost.
+
+Якщо зміни лише в документації без коду — збірку можна не робити, якщо користувач не просить.
+
+## Версія
+
+**Не** змінюй `version` у `plugin.json`, не додавай записи в `CHANGELOG.md` і не перейменовуй артефакт `dist/*.tar.gz` через версію **поки користувач явно не попросить** (наприклад: «підніми версію», «зроби реліз 1.3.6»).
+
+Якщо користувач просить зібрати плагін без згадки версії — лише `make dist` з поточною версією в `plugin.json`.

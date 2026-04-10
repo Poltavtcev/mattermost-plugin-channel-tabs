@@ -1,4 +1,4 @@
-import React, {useState, useCallback, useRef, useEffect} from 'react';
+import React, {useState, useCallback, useRef, useEffect, useMemo} from 'react';
 
 import MarkdownRenderer from './MarkdownRenderer';
 
@@ -24,6 +24,9 @@ type LinkedFile = {
     name: string;
 };
 
+/** Image extensions for choosing ![alt](url) vs [label](url) when inserting from the chip list. */
+const IMAGE_NAME_RE = /\.(png|jpe?g|gif|webp|svg)$/i;
+
 const PageEditor: React.FC<PageEditorProps> = ({channelId, initialContent, onSave, onCancel, saving}) => {
     const t = useTranslations();
     const [content, setContent] = useState(initialContent);
@@ -32,7 +35,8 @@ const PageEditor: React.FC<PageEditorProps> = ({channelId, initialContent, onSav
     const [uploading, setUploading] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const linkedFiles = extractLinkedFiles(content);
+
+    const linkedFiles = useMemo(() => extractLinkedFiles(content), [content]);
 
     useEffect(() => {
         if (textareaRef.current && !showPreview) {
@@ -130,6 +134,15 @@ const PageEditor: React.FC<PageEditorProps> = ({channelId, initialContent, onSav
         setContent((prev) => removeFileFromMarkdown(prev, fileID));
     }, []);
 
+    const handleInsertFileLink = useCallback((file: LinkedFile) => {
+        const fileURL = `${window.location.origin}/api/v4/files/${file.id}`;
+        const isImage = IMAGE_NAME_RE.test(file.name);
+        const markdown = isImage ?
+            `![${file.name}](${fileURL})` :
+            `[${file.name}](${fileURL})`;
+        insertTextAtCursor(markdown);
+    }, [insertTextAtCursor]);
+
     return (
         <div
             className='page-editor'
@@ -212,12 +225,14 @@ const PageEditor: React.FC<PageEditorProps> = ({channelId, initialContent, onSav
                                     key={file.id}
                                     className='page-editor__file-chip'
                                 >
-                                    <span
-                                        className='page-editor__file-chip-name'
-                                        title={file.name}
+                                    <button
+                                        className='page-editor__file-chip-name page-editor__file-chip-name--action'
+                                        type='button'
+                                        title={t('editor.insertFileLink')}
+                                        onClick={() => handleInsertFileLink(file)}
                                     >
                                         {file.name}
-                                    </span>
+                                    </button>
                                     <button
                                         className='page-editor__file-chip-remove'
                                         onClick={() => handleRemoveLinkedFile(file.id)}

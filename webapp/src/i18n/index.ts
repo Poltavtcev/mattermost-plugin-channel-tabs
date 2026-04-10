@@ -90,6 +90,7 @@ const messages: Record<string, Record<string, string>> = {
         'editor.uploadFailed': 'Upload failed: {message}',
         'editor.filesAttached': 'Files in this page',
         'editor.removeFile': 'Remove file reference',
+        'editor.insertFileLink': 'Insert link at cursor',
 
         // Index (header button)
         'header.title': 'Channel Tabs',
@@ -191,6 +192,7 @@ const messages: Record<string, Record<string, string>> = {
         'editor.uploadFailed': 'Не вдалося завантажити файл: {message}',
         'editor.filesAttached': 'Файли на цій сторінці',
         'editor.removeFile': 'Прибрати посилання на файл',
+        'editor.insertFileLink': 'Вставити посилання в текст',
 
         // Index (header button)
         'header.title': 'Вкладки каналу',

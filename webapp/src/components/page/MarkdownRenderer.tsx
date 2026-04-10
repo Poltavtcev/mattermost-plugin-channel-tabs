@@ -7,6 +7,13 @@ interface MarkdownRendererProps {
     content: string;
 }
 
+/**
+ * Normalize Windows / old-Mac line endings so \\n in Markdown is consistent.
+ */
+function normalizeNewlines(markdown: string): string {
+    return markdown.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+}
+
 function getYoutubeVideoId(href: string): string | null {
     try {
         const url = new URL(href);
@@ -43,12 +50,17 @@ function isYoutubeHref(href?: string): href is string {
 }
 
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({content}) => {
-    const sanitized = useMemo(() => {
-        return DOMPurify.sanitize(content);
+    const prepared = useMemo(() => {
+        return DOMPurify.sanitize(normalizeNewlines(content));
     }, [content]);
 
     return (
         <div className='page-markdown-body'>
+            {/*
+              Micromark keeps literal \\n inside paragraph text nodes (not mdast "break" nodes).
+              Default HTML/CSS collapses those newlines to spaces. white-space: pre-line (in SCSS)
+              makes them visible line breaks without altering the Markdown source.
+            */}
             <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
@@ -85,7 +97,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({content}) => {
                     },
                 }}
             >
-                {sanitized}
+                {prepared}
             </ReactMarkdown>
         </div>
     );
