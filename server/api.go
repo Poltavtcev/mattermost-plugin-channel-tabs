@@ -1099,7 +1099,7 @@ func (p *Plugin) resolveTeamNameForRHS(channelID string, channel *model.Channel,
 		}
 	}
 
-	for page := 0; page < 10; page++ {
+	for page := range 10 {
 		members, mErr := p.API.GetChannelMembers(channelID, page, 200)
 		if mErr != nil {
 			p.API.LogWarn("resolveTeamNameForRHS: GetChannelMembers failed", "channel_id", channelID, "error", mErr.Error())
