@@ -26,6 +26,7 @@ import {
     getEditingTab,
     getPluginConfig,
     getRhsPanelChannelId,
+    parseChannelTabsRhsPopout,
 } from '../selectors';
 import type {Tab, CreateTabRequest, UpdateTabRequest} from '../types/tabs';
 
@@ -96,25 +97,16 @@ const RHSPanel: React.FC = () => {
         return id ? entities.teams.teams?.[id]?.name || '' : '';
     });
 
-    const teamNameFromPopout = useMemo(() => {
+    const rhsPopoutParsed = useMemo(() => {
         if (!isPopout) {
-            return '';
+            return null;
         }
-        const parts = window.location.pathname.split('/').filter(Boolean);
-
-        // /_popout/rhs/<team>/<channel>/plugin/<pluginId>
-        return parts[1] === 'rhs' && parts[2] ? parts[2] : '';
+        return parseChannelTabsRhsPopout(window.location.pathname, window.location.search);
     }, [isPopout]);
 
-    const channelNameFromPopout = useMemo(() => {
-        if (!isPopout) {
-            return '';
-        }
-        const parts = window.location.pathname.split('/').filter(Boolean);
-
-        // /_popout/rhs/<team>/<channelId-or-name>/plugin/<pluginId>
-        return parts[1] === 'rhs' && parts[3] ? parts[3] : '';
-    }, [isPopout]);
+    const teamNameFromPopout = rhsPopoutParsed?.teamName || '';
+    const channelNameFromPopout =
+        rhsPopoutParsed?.channelPathSegment || rhsPopoutParsed?.channelNameFromQuery || '';
 
     const effectiveTeamName = teamName || teamNameFromPopout;
 

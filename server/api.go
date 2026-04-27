@@ -687,11 +687,12 @@ func permalinkForPost(teamName, postID string) string {
 	return "/pl/" + postID
 }
 
-func (p *Plugin) rhsPopoutLink(teamName, channelID string) string {
+func (p *Plugin) rhsPopoutLink(teamName, channelName string) string {
 	const pluginID = "channel-tabs"
 
-	// Mattermost RHS popout uses the channel id in this path segment (stable; matches webapp routes).
-	path := "/_popout/rhs/" + url.PathEscape(teamName) + "/" + url.PathEscape(channelID) + "/plugin/" + pluginID
+	// Working popout URLs use the channel *name* slug in the path (e.g. test2), not the channel id.
+	// /_popout/rhs/{team}/{channelName}/plugin/channel-tabs
+	path := "/_popout/rhs/" + url.PathEscape(teamName) + "/" + url.PathEscape(channelName) + "/plugin/" + pluginID
 	cfg := p.API.GetConfig()
 	if cfg == nil || cfg.ServiceSettings.SiteURL == nil || *cfg.ServiceSettings.SiteURL == "" {
 		return path
@@ -727,7 +728,7 @@ const maxHeaderLen = 1024
 
 var (
 	relativeFileLinkRe = regexp.MustCompile(`\((/api/v4/files/[a-zA-Z0-9]+)\)`)
-	popoutTeamRe       = regexp.MustCompile(`/_popout/rhs/([^/]+)/`)
+	popoutTeamRe       = regexp.MustCompile(`/_popout/rhs/([^/]*)/`)
 )
 
 func (p *Plugin) absoluteFileLinks(markdown string) string {
@@ -1040,6 +1041,87 @@ func (p *Plugin) ensureFallbackPost(channelID string, tabs []Tab, teamName strin
 
 // ---------- header sync ----------
 
+// firstTeamName returns the first team.Name for a user, or "".
+func (p *Plugin) firstTeamName(userID string) string {
+	if userID == "" {
+		return ""
+	}
+	teams, err := p.API.GetTeamsForUser(userID)
+	if err != nil || len(teams) == 0 {
+		return ""
+	}
+	return teams[0].Name
+}
+
+// resolveTeamNameForRHS returns a team name slug for /_popout/rhs/<team>/... URLs.
+// DM and GM channels have no channel.TeamId; the plugin bot may not belong to any team,
+// so GetTeamsForUser(bot) can be empty — we then use any human channel member's team.
+func (p *Plugin) resolveTeamNameForRHS(channelID string, channel *model.Channel, actorUserID string, existingHeader string) string {
+	if channel != nil && channel.TeamId != "" {
+		if team, teamErr := p.API.GetTeam(channel.TeamId); teamErr == nil && team != nil {
+			return team.Name
+		}
+	}
+
+	if actorUserID != "" {
+		if name := p.firstTeamName(actorUserID); name != "" {
+			return name
+		}
+	}
+
+	if match := popoutTeamRe.FindStringSubmatch(existingHeader); len(match) == 2 && match[1] != "" {
+		return match[1]
+	}
+
+	if p.botUserID != "" {
+		if name := p.firstTeamName(p.botUserID); name != "" {
+			return name
+		}
+	}
+
+	if channel != nil && channel.CreatorId != "" && channel.CreatorId != p.botUserID {
+		if name := p.firstTeamName(channel.CreatorId); name != "" {
+			return name
+		}
+	}
+
+	users, uErr := p.API.GetUsersInChannel(channelID, model.ChannelSortByUsername, 0, 200)
+	if uErr != nil {
+		p.API.LogWarn("resolveTeamNameForRHS: GetUsersInChannel failed", "channel_id", channelID, "error", uErr.Error())
+	} else {
+		for _, u := range users {
+			if u == nil || u.Id == "" || u.Id == p.botUserID {
+				continue
+			}
+			if name := p.firstTeamName(u.Id); name != "" {
+				return name
+			}
+		}
+	}
+
+	for page := 0; page < 10; page++ {
+		members, mErr := p.API.GetChannelMembers(channelID, page, 200)
+		if mErr != nil {
+			p.API.LogWarn("resolveTeamNameForRHS: GetChannelMembers failed", "channel_id", channelID, "error", mErr.Error())
+			break
+		}
+		if len(members) == 0 {
+			break
+		}
+		for _, m := range members {
+			if m.UserId == "" || m.UserId == p.botUserID {
+				continue
+			}
+			if name := p.firstTeamName(m.UserId); name != "" {
+				return name
+			}
+		}
+	}
+
+	p.API.LogWarn("resolveTeamNameForRHS: no team slug found for channel", "channel_id", channelID)
+	return ""
+}
+
 func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab, actorUserID string) {
 	cfg := p.getConfiguration()
 	mode := cfg.GetHeaderDisplayMode()
@@ -1062,35 +1144,7 @@ func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab, actorUser
 		return
 	}
 
-	var teamName string
-	if channel.TeamId != "" {
-		team, teamErr := p.API.GetTeam(channel.TeamId)
-		if teamErr == nil && team != nil {
-			teamName = team.Name
-		}
-	}
-
-	// For direct/group messages, TeamId may be empty but the popout route still needs a team slug.
-	// Best-effort: actor's first team, or reuse a team slug from an existing header link.
-	if teamName == "" {
-		if actorUserID != "" {
-			teams, tErr := p.API.GetTeamsForUser(actorUserID)
-			if tErr == nil && len(teams) > 0 {
-				teamName = teams[0].Name
-			}
-		}
-		if teamName == "" {
-			if match := popoutTeamRe.FindStringSubmatch(channel.Header); len(match) == 2 {
-				teamName = match[1]
-			}
-		}
-		if teamName == "" && p.botUserID != "" {
-			teams, tErr := p.API.GetTeamsForUser(p.botUserID)
-			if tErr == nil && len(teams) > 0 {
-				teamName = teams[0].Name
-			}
-		}
-	}
+	teamName := p.resolveTeamNameForRHS(channelID, channel, actorUserID, channel.Header)
 
 	postID := ""
 	if botPostsEnabled {
@@ -1151,7 +1205,7 @@ func (p *Plugin) syncTabsToChannelHeader(channelID string, tabs []Tab, actorUser
 	if botPostsEnabled && postID != "" {
 		hintLine = "[" + label + "](" + permalinkForPost(teamName, postID) + ")"
 	} else {
-		hintLine = "[" + label + "](" + p.rhsPopoutLink(teamName, channel.Id) + ")"
+		hintLine = "[" + label + "](" + p.rhsPopoutLink(teamName, channel.Name) + ")"
 	}
 
 	header := upsertChannelTabsHint(existing, hintLine)

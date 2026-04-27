@@ -49,6 +49,11 @@ function isYoutubeHref(href?: string): href is string {
     return Boolean(href && getYoutubeVideoId(href));
 }
 
+/** Open in same tab only for in-page anchors; everything else opens a new tab (RHS is narrow). */
+function shouldOpenMarkdownLinkInNewTab(href: string | undefined): boolean {
+    return Boolean(href && href !== '#' && !href.startsWith('#'));
+}
+
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({content}) => {
     const prepared = useMemo(() => {
         return DOMPurify.sanitize(normalizeNewlines(content));
@@ -89,8 +94,12 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({content}) => {
                             );
                         }
 
+                        const newTab = shouldOpenMarkdownLinkInNewTab(href);
                         return (
-                            <a href={href}>
+                            <a
+                                href={href}
+                                {...(newTab ? {target: '_blank', rel: 'noopener noreferrer'} : {})}
+                            >
                                 {children}
                             </a>
                         );

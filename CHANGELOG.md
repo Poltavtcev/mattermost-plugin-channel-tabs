@@ -2,7 +2,20 @@
 
 This file is the **source of truth in-repo** for what each version contains. GitHub **Releases** should match these sections for the same tag.
 
-**Why things used to diverge:** the changelog here was updated in small steps during development (sometimes mixing unreleased ideas with shipped fixes), while GitHub release notes are written at tag time from a fuller summary. From **v1.3.4** onward, keep this file and the GitHub release text in sync when you publish a tag.
+**Why things used to diverge:** the changelog here was updated in small steps during development (sometimes mixing unreleased ideas with shipped fixes), while GitHub release notes are written at tag time from a fuller summary. From **v1.3.5** onward, keep this file and the GitHub release text in sync when you publish a tag.
+
+---
+
+## v1.3.5
+
+### Fixes
+
+- **RHS popout / header hint URL:** hint links use `/_popout/rhs/{team}/{channelName}/plugin/channel-tabs` where `{channelName}` is the server **Channel.Name** (the URL segment Mattermost uses — e.g. `town-square`, or a generated handle when the display name is not Latin). The webapp resolves the channel from that segment and still supports legacy bookmarks (id in path, optional `?channel=`, collapsed empty-team paths).
+- **DM/GM header hints:** stronger fallbacks for the `{team}` slug when the channel has no `TeamId` — channel creator, `GetUsersInChannel`, and paginated `GetChannelMembers` when the bot or actor has no team membership.
+
+### Improvements
+
+- **Page Markdown:** links in rendered pages open in a new browser tab (`target="_blank"`, `rel="noopener noreferrer"`), except pure in-page anchors (`#...`), since the RHS panel is narrow.
 
 ---
 
@@ -16,7 +29,6 @@ This file is the **source of truth in-repo** for what each version contains. Git
 
 - **Page Markdown line breaks:** micromark keeps newline characters inside paragraph text, but the browser collapses them to spaces by default. The page preview now uses `white-space: pre-line` on prose blocks (and normalizes CRLF before sanitize) so line breaks in the editor match the rendered page.
 - **Channel header sync:** normalize **Header display mode** values (trim + case) so `hint` / `full` are not misread as `none`; background header refresh uses the plugin bot user and extra team fallbacks when resolving the RHS popout team slug (fixes missing or broken header hints after config changes).
-- **RHS popout (hint / new tab):** resolve the correct channel when `/_popout/rhs/<team>/<channelId>/plugin/channel-tabs` opens in a separate window (Redux `currentChannelId` is often wrong there); header hint links now use **channel id** in the path to match Mattermost’s popout routes.
 
 ### Improvements
 
@@ -115,7 +127,7 @@ This file is the **source of truth in-repo** for what each version contains. Git
 
 ## Publishing a release (maintainers)
 
-1. Confirm `plugin.json` → `"version"` matches the section you are shipping (e.g. **1.3.4**).
+1. Confirm `plugin.json` → `"version"` matches the section you are shipping (e.g. **1.3.5**).
 2. Run `make dist` — artifact: `dist/channel-tabs-<version>.tar.gz`.
-3. Create and push an annotated tag: `git tag -a v1.3.4 -m "v1.3.4"` then `git push origin v1.3.4`.
-4. On GitHub **Releases**: create release from that tag, attach the tarball, paste the matching **## v1.3.4** block from this file as the description.
+3. Create and push an annotated tag: `git tag -a v1.3.5 -m "v1.3.5"` then `git push origin v1.3.5`.
+4. On GitHub **Releases**: create release from that tag, attach the tarball, paste the matching **## v1.3.5** block from this file as the description.
