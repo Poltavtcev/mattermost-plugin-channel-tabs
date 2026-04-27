@@ -2,7 +2,15 @@
 
 This file is the **source of truth in-repo** for what each version contains. GitHub **Releases** should match these sections for the same tag.
 
-**Why things used to diverge:** the changelog here was updated in small steps during development (sometimes mixing unreleased ideas with shipped fixes), while GitHub release notes are written at tag time from a fuller summary. From **v1.3.5** onward, keep this file and the GitHub release text in sync when you publish a tag.
+**Why things used to diverge:** the changelog here was updated in small steps during development (sometimes mixing unreleased ideas with shipped fixes), while GitHub release notes are written at tag time from a fuller summary. From **v1.3.6** onward, keep this file and the GitHub release text in sync when you publish a tag.
+
+---
+
+## v1.3.6
+
+### Fixes
+
+- **RHS popout / header hint on Mattermost 11.6+:** the webapp changed popout routing (channel is passed as `?channel=` instead of an extra path segment). The plugin now picks the URL shape using **`GetServerVersion()`**: **11.6.0+** → `/_popout/rhs/{team}/plugin/channel-tabs?channel={Channel.Name}`; **older** (e.g. 11.4.x) → the previous `/_popout/rhs/{team}/{channelName}/plugin/channel-tabs` format so existing servers keep working.
 
 ---
 
@@ -127,7 +135,7 @@ This file is the **source of truth in-repo** for what each version contains. Git
 
 ## Publishing a release (maintainers)
 
-1. Confirm `plugin.json` → `"version"` matches the section you are shipping (e.g. **1.3.5**).
+1. Confirm `plugin.json` → `"version"` matches the section you are shipping (e.g. **1.3.6**).
 2. Run `make dist` — artifact: `dist/channel-tabs-<version>.tar.gz`.
-3. Create and push an annotated tag: `git tag -a v1.3.5 -m "v1.3.5"` then `git push origin v1.3.5`.
-4. On GitHub **Releases**: create release from that tag, attach the tarball, paste the matching **## v1.3.5** block from this file as the description.
+3. Create and push an annotated tag: `git tag -a v1.3.6 -m "v1.3.6"` then `git push origin v1.3.6`.
+4. On GitHub **Releases**: create release from that tag, attach the tarball, paste the matching **## v1.3.6** block from this file as the description.

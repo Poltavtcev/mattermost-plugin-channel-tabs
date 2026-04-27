@@ -687,12 +687,24 @@ func permalinkForPost(teamName, postID string) string {
 	return "/pl/" + postID
 }
 
+func (p *Plugin) rhsPopoutUsesQueryChannel() bool {
+	return mattermostRhsPopoutUsesQueryChannel(p.API.GetServerVersion())
+}
+
 func (p *Plugin) rhsPopoutLink(teamName, channelName string) string {
 	const pluginID = "channel-tabs"
 
-	// Working popout URLs use the channel *name* slug in the path (e.g. test2), not the channel id.
-	// /_popout/rhs/{team}/{channelName}/plugin/channel-tabs
-	path := "/_popout/rhs/" + url.PathEscape(teamName) + "/" + url.PathEscape(channelName) + "/plugin/" + pluginID
+	base := "/_popout/rhs/" + url.PathEscape(teamName)
+	var path string
+	if p.rhsPopoutUsesQueryChannel() {
+		path = base + "/plugin/" + pluginID
+		if channelName != "" {
+			path += "?channel=" + url.QueryEscape(channelName)
+		}
+	} else {
+		path = base + "/" + url.PathEscape(channelName) + "/plugin/" + pluginID
+	}
+
 	cfg := p.API.GetConfig()
 	if cfg == nil || cfg.ServiceSettings.SiteURL == nil || *cfg.ServiceSettings.SiteURL == "" {
 		return path
